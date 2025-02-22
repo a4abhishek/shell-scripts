@@ -3,7 +3,7 @@ VERSION ?= v1.0.0
 ARCHIVE_NAME = shell-scripts-$(VERSION).tar.gz
 PREFIX = shell-scripts-$(VERSION)/
 
-.PHONY: release tag archive ghrelease gh-install
+.PHONY: release tag archive ghrelease gh-install test
 
 release: check-gh-cli tag archive ghrelease
 	@echo "Release $(VERSION) complete."
@@ -111,5 +111,28 @@ gh-install-linux:
 		sudo yum install gh -y; \
 	else \
 		echo "Automatic installation is not supported on your Linux distribution. Please install gh manually from https://cli.github.com/"; \
+		exit 1; \
+	fi
+
+# Test target: Run all tests
+test: check-bats
+	@echo "Running tests..."
+	@./run_tests.sh
+
+# Check if BATS is installed
+check-bats:
+	@if ! command -v bats >/dev/null 2>&1; then \
+		echo "❌ BATS (Bash Automated Testing System) is not installed."; \
+		case "$$(uname -s)" in \
+			Darwin) \
+				echo "👉 On macOS, install it with: 'brew install bats-core'"; \
+				;; \
+			Linux) \
+				echo "👉 On Linux (Debian/Ubuntu), install it with: 'sudo apt install bats'"; \
+				;; \
+			*) \
+				echo "👉 Visit https://github.com/bats-core/bats-core for installation instructions."; \
+				;; \
+		esac; \
 		exit 1; \
 	fi

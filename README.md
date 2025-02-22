@@ -232,6 +232,10 @@ cd bats-core
 
 Run all tests:
 ```bash
+# Using make (recommended)
+make test
+
+# Or directly
 ./run_tests.sh
 ```
 
