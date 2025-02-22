@@ -33,12 +33,56 @@ shell-scripts/
 
 ## Installation
 
-Clone the repository:
+There are several ways to install the shell scripts library:
+
+### 1️⃣ Install via curl (Versioned Release)
+
+Install a specific tagged release:
+
+```bash
+curl -o- https://raw.githubusercontent.com/a4abhishek/shell-scripts/v0.1.0/install.sh | bash -s -- INSTALL_VERSION=v0.1.0
+```
+
+This will:
+- Download the specified version
+- Install to a suitable location (preferring `~/.local/my-shell-scripts`)
+- Add the scripts to your PATH
+
+### 2️⃣ Install from Local Clone
+
+Clone and install locally:
 
 ```bash
 git clone https://github.com/a4abhishek/shell-scripts.git
 cd shell-scripts
+./install.sh
 ```
+
+### 3️⃣ Development Installation
+
+For testing the install script without re-downloading:
+
+```bash
+SKIP_DOWNLOAD=true ./install.sh
+```
+
+### Custom Installation Location
+
+You can specify a custom installation directory:
+
+```bash
+INSTALL_DIR=/custom/path ./install.sh
+```
+
+### Verification
+
+After installation:
+1. Start a new terminal session or source your shell RC file
+2. Verify the installation:
+   ```bash
+   command -v notify
+   ```
+   This should show the path to the installed notify script
 
 ## Usage
 
