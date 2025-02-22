@@ -26,8 +26,9 @@ shell-scripts/
 ├── test/          # Test scripts
 │   └── ...
 ├── run_tests.sh   # Run all tests
+├── Makefile       # Build and release automation
 ├── install.sh (coming soon)
-└── README.md          
+└── README.md
 ```
 
 ## Installation
@@ -269,3 +270,62 @@ Key testing concepts:
 - Use `@test` blocks to define test cases
 - Use `run` to capture command output and status
 - Use assertions like `[ "$status" -eq 0 ]` to verify results
+
+## Releases
+
+This project uses GitHub Releases for version management. The release process is automated via the Makefile.
+
+### Prerequisites
+
+1. Install GitHub CLI (gh):
+```bash
+# Using make (recommended)
+make gh-install
+
+# Or manually from https://cli.github.com/
+```
+
+2. Authenticate with GitHub:
+```bash
+gh auth login
+```
+
+### Creating a Release
+
+1. Set the version (default is v1.0.0):
+```bash
+# Either export the version
+export VERSION=v1.2.3
+
+# Or specify it directly in the make command
+make release VERSION=v1.2.3
+```
+
+2. Run the release command:
+```bash
+make release
+```
+
+This will:
+- Verify GitHub CLI installation and authentication
+- Create and push a git tag
+- Generate a release archive
+- Create a GitHub release with:
+  - Release notes from git commits
+  - Download archive
+  - Links to full changelog
+
+### Individual Steps
+
+You can also run individual steps:
+
+```bash
+# Just create and push the tag
+make tag VERSION=v1.2.3
+
+# Just create the release archive
+make archive VERSION=v1.2.3
+
+# Just create the GitHub release
+make ghrelease VERSION=v1.2.3
+```
