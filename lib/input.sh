@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Prevent duplicate sourcing
+if [[ -n "${_LIB_INPUT_LOADED:-}" ]]; then return; fi
+_LIB_INPUT_LOADED=true
+
 # Read Multi-Line Input
 read_multiline_input() {
   local input_file=$(mktemp)

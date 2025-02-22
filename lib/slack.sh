@@ -1,6 +1,11 @@
 #!/bin/zsh
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Prevent duplicate sourcing
+if [[ -n "${_LIB_SLACK_LOADED:-}" ]]; then return; fi
+_LIB_SLACK_LOADED=true
+
+# Source supporting libraries
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 . "$SCRIPT_DIR/logging.sh"
 . "$SCRIPT_DIR/preflight.sh"
 

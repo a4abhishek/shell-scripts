@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-. "$SCRIPT_DIR/../lib/slack.sh"
+LIB_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
+. "$LIB_DIR/core.sh"
 
 # Notify Me
 function notify() {

@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Prevent duplicate sourcing
+if [[ -n "${_LIB_EXIT_LOADED:-}" ]]; then return; fi
+_LIB_EXIT_LOADED=true
+
 # Ensure script stops on errors and propagates failures properly.
 set -euo pipefail
 
