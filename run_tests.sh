@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Source core library which will load all other libraries
+LIB_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/lib" && pwd)"
+. "$LIB_DIR/logging.sh"
+. "$LIB_DIR/preflight.sh"
+
+# Define checks before they run
+check_bats() {
+    if ! command -v bats &>/dev/null; then
+        log_error "'bats' is not installed."
+        log_error "👉 Please install BATS before running tests."
+
+        # Provide installation instructions based on OS
+        case "$(uname -s)" in
+            Linux)
+                log_error "🔹 On Linux (Debian/Ubuntu), install it with: 'sudo apt install bats'"
+                ;;
+            Darwin)
+                log_error "🔹 On macOS, install it with: 'brew install bats-core'"
+                ;;
+            *)
+                log_error "🔹 Refer to https://github.com/bats-core/bats-core for installation instructions."
+                ;;
+        esac
+
+        exit 1
+    fi
+}
+
+# Register the check
+register_preflight check_bats
+
+# Now run the checks explicitly
+_run_preflight_checks
+
+# Run all .sh files in test/ with Bats
+for t in test/*_test.sh; do
+    echo "Running $t..."
+    bats "$t"
+done

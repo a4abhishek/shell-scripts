@@ -23,9 +23,10 @@ shell-scripts/
 │   ├── exit.sh
 │   ├── input.sh
 │   └── ...
-├── test/          # Test scripts (Coming soon)
+├── test/          # Test scripts
 │   └── ...
-├── install.sh
+├── run_tests.sh   # Run all tests
+├── install.sh (coming soon)
 └── README.md          
 ```
 
@@ -204,3 +205,67 @@ This will:
 - Track execution time
 - Send a Slack notification on completion/failure
 - Include execution duration in the notification
+
+## Testing
+
+This project uses [BATS (Bash Automated Testing System)](https://github.com/bats-core/bats-core) for testing. BATS provides a TAP-compliant testing framework for Bash scripts.
+
+### Prerequisites
+
+Install BATS:
+
+```bash
+# macOS
+brew install bats-core
+
+# Debian/Ubuntu
+sudo apt install bats
+
+# Other systems
+git clone https://github.com/bats-core/bats-core.git
+cd bats-core
+./install.sh /usr/local
+```
+
+### Running Tests
+
+Run all tests:
+```bash
+./run_tests.sh
+```
+
+Run a specific test file:
+```bash
+bats test/logging_test.sh
+```
+
+### Writing Tests
+
+Tests are located in the `test/` directory and follow the BATS format:
+
+```bash
+#!/usr/bin/env bash
+
+# Load dependencies
+setup() {
+    load '../lib/logging.sh'
+}
+
+# Optional cleanup
+teardown() {
+    true  # No cleanup needed
+}
+
+@test "Check that log_info prints messages" {
+    run log_info "Test message"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "Test message" ]]
+}
+```
+
+Key testing concepts:
+- Use `setup()` to load dependencies and prepare test environment
+- Use `teardown()` to clean up after tests
+- Use `@test` blocks to define test cases
+- Use `run` to capture command output and status
+- Use assertions like `[ "$status" -eq 0 ]` to verify results
