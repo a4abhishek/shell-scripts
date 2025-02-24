@@ -26,11 +26,9 @@ check_realpath() {
     return 0
 }
 
-SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
-LIB_DIR="$SCRIPT_DIR"
-
 # Load all library files (excluding core.sh itself)
-for lib_file in "$LIB_DIR"/*.sh; do
+CORE_LIB_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)/core"
+for lib_file in "$CORE_LIB_DIR"/*.sh; do
     if [[ "$lib_file" != "${BASH_SOURCE[0]}" ]]; then  # Skip core.sh itself
         . "$lib_file"
     fi

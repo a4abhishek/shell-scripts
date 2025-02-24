@@ -2,14 +2,14 @@
 
 # Setup test environment
 setup() {
-    load '../lib/logging.sh'
-    load '../lib/input.sh'
+    load '../lib/core/logging.sh'
+    load '../lib/core/input.sh'
 
     # Create a temporary script that sources our library and runs the function
     TEST_SCRIPT=$(mktemp)
     cat > "$TEST_SCRIPT" << EOF
 #!/usr/bin/env bash
-. "$BATS_TEST_DIRNAME/../lib/input.sh"
+. "$BATS_TEST_DIRNAME/../lib/core/input.sh"
 read_multiline_input
 EOF
     chmod +x "$TEST_SCRIPT"

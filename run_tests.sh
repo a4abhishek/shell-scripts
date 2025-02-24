@@ -4,8 +4,7 @@ set -euo pipefail
 
 # Source core library which will load all other libraries
 LIB_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/lib" && pwd)"
-. "$LIB_DIR/logging.sh"
-. "$LIB_DIR/preflight.sh"
+. "$LIB_DIR/core.sh"
 
 # Define checks before they run
 check_bats() {

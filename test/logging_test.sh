@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 setup() {
-    load '../lib/logging.sh'
+    load '../lib/core/logging.sh'
 }
 
 @test "Check that log_info prints messages" {

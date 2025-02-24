@@ -17,11 +17,14 @@ shell-scripts/
 ├── bin/           # Executable scripts
 │   └── ...
 ├── lib/           # Reusable library scripts
-│   ├── core.sh
-│   ├── logging.sh
-│   ├── preflight.sh
-│   ├── exit.sh
-│   ├── input.sh
+│   ├── core/      # Core libraries
+│   │   ├── logging.sh
+│   │   ├── preflight.sh
+│   │   ├── exit.sh
+│   │   ├── input.sh
+│   │   └── ...
+│   ├── core.sh    # Core library entry point
+│   ├── slack.sh
 │   └── ...
 ├── test/          # Test scripts
 │   └── ...
