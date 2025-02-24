@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+# Prevent duplicate sourcing
+if [[ -n "${_LIB_UTILS_LOADED:-}" ]]; then return; fi
+_LIB_UTILS_LOADED=true
+
+# Ensure script stops on errors
+set -euo pipefail
+
+# Source required libraries
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
+. "$SCRIPT_DIR/core.sh"
+
+# Usage function
+usage() {
+    log_error "Usage: $(basename "$0") <directory>"
+    log_info "  Creates the specified directory if it doesn't exist and changes into it."
+    log_info "  Example: mkcd path/to/new/directory"
+    exit 1
+}
+
+# Make directory and change into it
+mkcd() {
+    if [[ $# -ne 1 ]]; then
+        usage
+    fi
+
+    local dir="$1"
+    
+    # Create directory if it doesn't exist
+    if [[ ! -d "$dir" ]]; then
+        if ! mkdir -p "$dir"; then
+            log_error "Failed to create directory: $dir"
+            return 1
+        fi
+        log_debug "Created directory: $dir"
+    fi
+    
+    # Change to directory
+    if ! cd "$dir"; then
+        log_error "Failed to change to directory: $dir"
+        return 1
+    fi
+    
+    log_debug "Changed to directory: $dir"
+    return 0
+}
+
+# Main function
+main() {
+    if [[ $# -eq 0 ]]; then
+        usage
+    fi
+    mkcd "$@"
+}
+
+# Run main function
+main "$@"

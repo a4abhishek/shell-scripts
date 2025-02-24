@@ -8,8 +8,8 @@ _LIB_LOGGING_LOADED=true
 set -euo pipefail
 
 # Source feature detection
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-. "$SCRIPT_DIR/features.sh"
+CORE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$CORE_LIB_DIR/features.sh"
 
 
 _detect_terminal_capabilities() {

@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+
+# Source required libraries
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
+. "$SCRIPT_DIR/core.sh"
+
+# Preflight check for kubectl
+check_kubectl() {
+    if ! command -v kubectl &>/dev/null; then
+        log_error "kubectl is not installed"
+        return 1
+    fi
+    return 0
+}
+
+# Register preflight checks
+register_preflight check_kubectl
+
+# Usage function
+usage() {
+    log_error "Usage: $(basename "$0") [deployment-name]"
+    log_info "  Interactive deployment rollback utility"
+    log_info "  If deployment name is provided, rolls back directly"
+    log_info "  Otherwise, enters interactive mode"
+    log_info "  Example: $(basename "$0") my-deployment"
+    exit 1
+}
+
+# Detect Namespace of a Given Deployment
+get_deployment_namespace() {
+    local deployment="$1"
+    
+    local namespace
+    namespace=$(kubectl get deployment --all-namespaces -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name" \
+        | awk -v dep="$deployment" '$2 == dep {print $1; exit}')
+
+    if [[ -z "$namespace" ]]; then
+        log_error "Deployment '$deployment' not found in any namespace."
+        return 1
+    fi
+
+    echo "$namespace"
+}
+
+# Get Latest Revision of Deployment
+get_latest_revision() {
+    local deployment="$1"
+    local namespace="$2"
+
+    local latest_revision
+    latest_revision=$(kubectl rollout history deployment/"$deployment" -n "$namespace" --no-headers 2>/dev/null | awk '{print $1}' | tail -n1)
+
+    if [[ -z "$latest_revision" ]]; then
+        log_error "No previous revision found for deployment '$deployment' in namespace '$namespace'."
+        return 1
+    fi
+
+    echo "$latest_revision"
+}
+
+# Perform Rollback
+rollback_deployment() {
+    local deployment="$1"
+    local namespace="$2"
+
+    local latest_revision
+    latest_revision=$(get_latest_revision "$deployment" "$namespace") || return 1
+
+    log_info "Rolling back deployment '$deployment' to revision $latest_revision in namespace '$namespace'..."
+    
+    if kubectl rollout undo deployment/"$deployment" --to-revision="$latest_revision" -n "$namespace"; then
+        log_success "Rollback successful! Monitor status using:"
+        log_info "kubectl rollout status deployment/$deployment -n $namespace"
+    else
+        log_error "Rollback failed for deployment '$deployment' in namespace '$namespace'."
+        return 1
+    fi
+}
+
+# Interactive mode
+interactive_mode() {
+    while true; do
+        echo -en "\n📌 Enter deployment name (or type 'exit' to quit): "
+        read -r deployment_name
+
+        if [[ "$deployment_name" == "exit" ]]; then
+            log_info "Exiting script."
+            break
+        fi
+
+        # Dynamically find namespace for the deployment
+        local namespace
+        namespace=$(get_deployment_namespace "$deployment_name") || continue
+
+        # Attempt rollback
+        rollback_deployment "$deployment_name" "$namespace"
+    done
+}
+
+main() {
+    if [[ $# -eq 1 && "$1" == "-h" ]]; then
+        usage
+    fi
+
+    if [[ $# -eq 1 ]]; then
+        local deployment_name="$1"
+        local namespace
+        namespace=$(get_deployment_namespace "$deployment_name") || exit 1
+        rollback_deployment "$deployment_name" "$namespace"
+    else
+        interactive_mode
+    fi
+}
+
+# Run main function
+main "$@"

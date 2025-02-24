@@ -1,74 +1,90 @@
 #!/usr/bin/env bash
 
-LIB_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
-. "$LIB_DIR/core.sh"
-. "$LIB_DIR/slack.sh"
+# Source required libraries
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
+. "$SCRIPT_DIR/core.sh"
+. "$SCRIPT_DIR/slack.sh"
 
-# Notify Me
-function notify() {
-  # Record the start time (in milliseconds since epoch)
-  if command -v gdate >/dev/null 2>&1; then
-    # Use GNU date if available
-    local start_time=$(gdate +%s%3N)
-  else
-    # Use BSD date with manual milliseconds
-    local start_time=$(( $(date +%s) * 1000 + $(date +%N | cut -c1-3) ))
-  fi
-
-  # Capture the command and arguments
-  local cmd=("$@")
-  if [[ ${#cmd[@]} -eq 0 ]]; then
-    echo "Error: No command provided to notify function." >&2
-    return 1
-  fi
-
-  # Execute the command
-  "${cmd[@]}"
-  local status_code=$?
-
-  # Record the end time
-  if command -v gdate >/dev/null 2>&1; then
-    local end_time=$(gdate +%s%3N)
-  else
-    local end_time=$(( $(date +%s) * 1000 + $(date +%N | cut -c1-3) ))
-  fi
-
-  # Calculate duration in milliseconds
-  local duration=$((end_time - start_time))
-
-  # Format duration dynamically
-  local formatted_duration=""
-  if [ $duration -lt 1000 ]; then
-    formatted_duration="${duration}ms"
-  else
-    local seconds=$((duration / 1000))
-    local ms=$((duration % 1000))
-    local hours=$((seconds / 3600))
-    local minutes=$(((seconds % 3600) / 60))
-    local remaining_seconds=$((seconds % 60))
-
-    [[ $hours -gt 0 ]] && formatted_duration="${hours}h"
-    [[ $minutes -gt 0 ]] && formatted_duration="${formatted_duration} ${minutes}m"
-    [[ $remaining_seconds -gt 0 ]] && formatted_duration="${formatted_duration} ${remaining_seconds}s"
-    [[ $ms -gt 0 ]] && formatted_duration="${formatted_duration} ${ms}ms"
-  fi
-
-  formatted_duration=$(echo "$formatted_duration" | xargs) # Trim spaces
-
-  # Prepare the message for the webhook
-  local message
-  if [ $status_code -eq 0 ]; then
-    message="🟩 Your command \"${cmd[*]}\" is Successful!\nIt took ${formatted_duration} to finish."
-  else
-    message="🟥 Your command \"${cmd[*]}\" failed.\nTime taken: ${formatted_duration}."
-  fi
-
-  # Send to webhook
-  send_slack_message "$message"
-
-  # Return the original command's exit code
-  return $status_code
+# Usage function
+usage() {
+    log_error "Usage: $(basename "$0") <command> [args...]"
+    log_info "  Executes the given command and sends a Slack notification upon completion."
+    log_info "  Example: notify ls -la"
+    exit 1
 }
 
-# Run the notify function with the provided command
-notify "$@"
+# Notify Me
+notify() {
+    # Record the start time (in milliseconds since epoch)
+    if command -v gdate >/dev/null 2>&1; then
+        # Use GNU date if available
+        local start_time=$(gdate +%s%3N)
+    else
+        # Use BSD date with manual milliseconds
+        local start_time=$(( $(date +%s) * 1000 + $(date +%N | cut -c1-3) ))
+    fi
+
+    # Capture the command and arguments
+    local cmd=("$@")
+    if [[ ${#cmd[@]} -eq 0 ]]; then
+        usage
+    fi
+
+    # Execute the command
+    "${cmd[@]}"
+    local status_code=$?
+
+    # Record the end time
+    if command -v gdate >/dev/null 2>&1; then
+        local end_time=$(gdate +%s%3N)
+    else
+        local end_time=$(( $(date +%s) * 1000 + $(date +%N | cut -c1-3) ))
+    fi
+
+    # Calculate duration in milliseconds
+    local duration=$((end_time - start_time))
+
+    # Format duration dynamically
+    local formatted_duration=""
+    if [ $duration -lt 1000 ]; then
+        formatted_duration="${duration}ms"
+    else
+        local seconds=$((duration / 1000))
+        local ms=$((duration % 1000))
+        local hours=$((seconds / 3600))
+        local minutes=$(((seconds % 3600) / 60))
+        local remaining_seconds=$((seconds % 60))
+
+        [[ $hours -gt 0 ]] && formatted_duration="${hours}h"
+        [[ $minutes -gt 0 ]] && formatted_duration="${formatted_duration} ${minutes}m"
+        [[ $remaining_seconds -gt 0 ]] && formatted_duration="${formatted_duration} ${remaining_seconds}s"
+        [[ $ms -gt 0 ]] && formatted_duration="${formatted_duration} ${ms}ms"
+    fi
+
+    formatted_duration=$(echo "$formatted_duration" | xargs) # Trim spaces
+
+    # Prepare the message for the webhook
+    local message
+    if [ $status_code -eq 0 ]; then
+        message="🟩 Your command \"${cmd[*]}\" is Successful!\nIt took ${formatted_duration} to finish."
+    else
+        message="🟥 Your command \"${cmd[*]}\" failed.\nTime taken: ${formatted_duration}."
+    fi
+
+    # Send to webhook
+    send_slack_message "$message"
+
+    # Return the original command's exit code
+    return $status_code
+}
+
+# Main function
+main() {
+    if [[ $# -eq 0 ]]; then
+        usage
+    fi
+    notify "$@"
+}
+
+# Run main function
+main "$@"

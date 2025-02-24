@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+
+# Source required libraries
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
+. "$SCRIPT_DIR/core.sh"
+
+# Preflight check for kubectl
+check_kubectl() {
+    if ! command -v kubectl &>/dev/null; then
+        log_error "kubectl is not installed"
+        return 1
+    fi
+    return 0
+}
+
+# Register preflight checks
+register_preflight check_kubectl
+
+# Usage function
+usage() {
+    log_error "Usage: $(basename "$0") [-n <namespace>] <pod>"
+    log_info "  Lists all containers and their images in a pod"
+    log_info "  -n : (Optional) Specify a namespace"
+    log_info "  Example: $(basename "$0") -n kube-system coredns-123456"
+    exit 1
+}
+
+# Function to fetch and display container details
+display_containers() {
+    local title="$1"
+    local output="$2"
+    local pod_name="$3"
+
+    # Check if output is empty
+    if [[ -z "$output" ]]; then
+        log_info "No ${title,,} found in pod '$pod_name'."
+        return
+    fi
+
+    # Convert output to array format for table function
+    local containers=()
+    while IFS=$'\t' read -r name image; do
+        name=$(echo -n "$name" | xargs)    # Trim spaces
+        image=$(echo -n "$image" | xargs)  # Trim spaces
+        containers+=("$name/$image")
+    done <<< "$output"
+
+    # Display using our table library
+    print_two_column_table "$title in Pod '$pod_name'" "CONTAINER NAME" "IMAGE" "${containers[@]}"
+}
+
+main() {
+    local namespace=""
+    local pod=""
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -n)
+                if [[ -z "$2" || "$2" == "-"* ]]; then
+                    log_error "Namespace flag '-n' requires an argument."
+                    usage
+                fi
+                namespace="$2"
+                shift 2
+                ;;
+            *)
+                pod="$1"
+                shift
+                ;;
+        esac
+    done
+
+    # Ensure a pod name is provided
+    if [[ -z "$pod" ]]; then
+        log_error "Pod name is required."
+        usage
+    fi
+
+    # Construct kubectl namespace argument
+    local namespace_arg=()
+    [[ -n "$namespace" ]] && namespace_arg=(-n "$namespace")
+
+    log_info "Fetching container details for pod: '$pod' ${namespace:+in namespace '$namespace'}..."
+
+    # Fetch regular and init container details
+    log_debug "Fetching regular containers..."
+    local container_output
+    container_output=$(kubectl get pod "$pod" "${namespace_arg[@]}" -o jsonpath='{range .spec.containers[*]}{.name}{"\t"}{.image}{"\n"}{end}')
+
+    log_debug "Fetching init containers..."
+    local init_container_output
+    init_container_output=$(kubectl get pod "$pod" "${namespace_arg[@]}" -o jsonpath='{range .spec.initContainers[*]}{.name}{"\t"}{.image}{"\n"}{end}')
+
+    # Display containers and init containers separately
+    display_containers "Containers" "$container_output" "$pod"
+    display_containers "Init Containers" "$init_container_output" "$pod"
+}
+
+# Run main function
+main "$@"
