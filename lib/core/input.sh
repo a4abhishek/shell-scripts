@@ -4,6 +4,10 @@
 if [[ -n "${_LIB_INPUT_LOADED:-}" ]]; then return; fi
 _LIB_INPUT_LOADED=true
 
+# Source logging functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/logging.sh"
+
 # Read Multi-Line Input
 read_multiline_input() {
   local input_file=$(mktemp)

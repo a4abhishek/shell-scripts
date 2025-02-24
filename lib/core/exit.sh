@@ -30,7 +30,7 @@ _run_custom_cleanups() {
 # Default cleanup handler
 _default_cleanup() {
     _run_custom_cleanups
-    echo -e "\n\033[1;33m⚠️  [EXIT] Received Ctrl+C. Exiting gracefully...\033[0m"
+    echo -e "\n\033[1;33m⚠️  [EXIT] Script completed gracefully.\033[0m"
     exit 0
 }
 

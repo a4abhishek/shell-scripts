@@ -2,6 +2,7 @@
 
 LIB_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
 . "$LIB_DIR/core.sh"
+. "$LIB_DIR/slack.sh"
 
 # Notify Me
 function notify() {

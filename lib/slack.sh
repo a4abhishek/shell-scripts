@@ -6,8 +6,7 @@ _LIB_SLACK_LOADED=true
 
 # Source supporting libraries
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
-. "$SCRIPT_DIR/logging.sh"
-. "$SCRIPT_DIR/preflight.sh"
+. "$SCRIPT_DIR/core.sh"
 
 # Preflight check for Slack webhook URL
 check_slack_webhook_url() {
