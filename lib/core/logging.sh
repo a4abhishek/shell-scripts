@@ -7,36 +7,17 @@ _LIB_LOGGING_LOADED=true
 # Ensure script stops on errors and propagates failures properly.
 set -euo pipefail
 
-# Detect if terminal supports colors and unicode
+# Source feature detection
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/features.sh"
+
+
 _detect_terminal_capabilities() {
     # Allow test override, but NO_COLOR takes precedence
     if [[ -n "${NO_COLOR:-}" ]]; then
-        _USE_COLOR=false
+        export HAS_COLOR_SUPPORT=false
     elif [[ -n "${FORCE_COLOR:-}" ]]; then
-        _USE_COLOR=true
-    else
-        # Check if output is to terminal and terminal supports colors
-        if [[ -t 1 ]] && [[ -n "${TERM:-}" ]] && command -v tput >/dev/null 2>&1; then
-            if [[ $(tput colors 2>/dev/null || echo 0) -ge 8 ]]; then
-                _USE_COLOR=true
-            else
-                _USE_COLOR=false
-            fi
-        else
-            _USE_COLOR=false
-        fi
-    fi
-
-    # Allow test override
-    if [[ -n "${FORCE_UNICODE:-}" ]]; then
-        _USE_UNICODE=true
-    else
-        # Check if terminal supports unicode
-        if [[ "$(locale charmap 2>/dev/null)" == *"UTF-8"* ]]; then
-            _USE_UNICODE=true
-        else
-            _USE_UNICODE=false
-        fi
+        export HAS_COLOR_SUPPORT=true
     fi
 
     # Define fallback symbols for non-unicode terminals
@@ -50,7 +31,7 @@ _detect_terminal_capabilities() {
     )
 
     # Define unicode symbols if supported
-    if [[ "${_USE_UNICODE:-false}" == "true" ]]; then
+    if [[ "${HAS_UNICODE_SUPPORT:-false}" == "true" ]]; then
         _SYMBOLS["debug"]="🔍"
         _SYMBOLS["info"]="📌"
         _SYMBOLS["success"]="✅"
@@ -60,7 +41,7 @@ _detect_terminal_capabilities() {
     fi
 
     # Define color codes if supported
-    if [[ "${_USE_COLOR:-false}" == "true" ]]; then
+    if [[ "${HAS_COLOR_SUPPORT:-false}" == "true" ]]; then
         _COLOR_DEBUG="\033[1;34m"   # Bold Blue
         _COLOR_INFO="\033[1;32m"    # Bold Green
         _COLOR_SUCCESS="\033[1;32m" # Bold Green

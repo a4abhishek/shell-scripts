@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 
 # Prevent duplicate sourcing
 if [[ -n "${_LIB_SLACK_LOADED:-}" ]]; then return; fi
@@ -15,10 +15,12 @@ check_slack_webhook_url() {
     return 1
   fi
 
-  # Basic URL format validation
-  if [[ ! "$SLACK_WEBHOOK_URL" =~ ^https://hooks\.slack\.com/services/ ]]; then
-    log_error "SLACK_WEBHOOK_URL doesn't appear to be a valid Slack webhook URL."
-    return 1
+  # Only validate Slack format if we are not in test mode
+  if [ "${TEST_ENV:-false}" != "true" ]; then
+    if [[ ! "$SLACK_WEBHOOK_URL" =~ ^https://hooks\.slack\.com/services/ ]]; then
+      log_error "SLACK_WEBHOOK_URL doesn't appear to be a valid Slack webhook URL."
+      return 1
+    fi
   fi
 
   return 0

@@ -30,7 +30,7 @@ shell-scripts/
 │   └── ...
 ├── run_tests.sh   # Run all tests
 ├── Makefile       # Build and release automation
-├── install.sh (coming soon)
+├── install.sh
 └── README.md
 ```
 
