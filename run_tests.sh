@@ -35,8 +35,21 @@ register_preflight check_bats
 # Now run the checks explicitly
 _run_preflight_checks
 
+# Track test failures
+failed_tests=0
+
 # Run all .sh files in test/ with Bats
 for t in test/*_test.sh; do
     echo "Running $t..."
-    bats "$t"
+    if ! bats "$t"; then
+        failed_tests=$((failed_tests + 1))
+    fi
 done
+
+# Exit with failure if any tests failed
+if [ "$failed_tests" -gt 0 ]; then
+    log_error "$failed_tests test files had failures"
+    exit 1
+fi
+
+exit 0

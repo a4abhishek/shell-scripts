@@ -2,8 +2,39 @@
 VERSION ?= v1.0.0
 ARCHIVE_NAME = shell-scripts-$(VERSION).tar.gz
 PREFIX = shell-scripts-$(VERSION)/
+TEST_FILE ?=
 
-.PHONY: release tag archive ghrelease gh-install test
+.PHONY: help tag archive ghrelease release gh-install test
+
+# Help target
+help:
+	@echo "Shell Scripts - Available Make Targets"
+	@echo ""
+	@echo "Testing Targets:"
+	@echo "  test           - Run tests (all or specific)"
+	@echo "                  Usage: make test [TEST_FILE=path/to/test.sh]"
+	@echo ""
+	@echo "Release Targets:"
+	@echo "  release       - Create and publish a new release"
+	@echo "                  Usage: make release [VERSION=v1.2.3]"
+	@echo "  tag          - Create and push a new git tag"
+	@echo "                  Usage: make tag [VERSION=v1.2.3]"
+	@echo "  archive      - Create release archive"
+	@echo "                  Usage: make archive [VERSION=v1.2.3]"
+	@echo "  ghrelease    - Create GitHub release"
+	@echo "                  Usage: make ghrelease [VERSION=v1.2.3]"
+	@echo ""
+	@echo "Installation Targets:"
+	@echo "  gh-install   - Install GitHub CLI (gh)"
+	@echo ""
+	@echo "Default Values:"
+	@echo "  VERSION      = $(VERSION)"
+	@echo "  TEST_FILE    = $(TEST_FILE)"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make test TEST_FILE=test/logging_test.sh"
+	@echo "  make release VERSION=v1.2.3"
+	@echo "  make test-all"
 
 release: check-gh-cli tag archive ghrelease
 	@echo "Release $(VERSION) complete."
@@ -114,10 +145,31 @@ gh-install-linux:
 		exit 1; \
 	fi
 
-# Test target: Run all tests
-test: check-bats
-	@echo "Running tests..."
+# Test targets
+test-all: check-bats
+	@echo "Running all tests..."
 	@./run_tests.sh
+
+test-specific: check-bats
+	@if [ -z "$(TEST_FILE)" ]; then \
+		echo "❌ Error: No test file specified"; \
+		echo "Usage: make test TEST_FILE=path/to/test_file.sh"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(TEST_FILE)" ]; then \
+		echo "❌ Error: Test file '$(TEST_FILE)' not found"; \
+		exit 1; \
+	fi
+	@echo "Running specific test: $(TEST_FILE)"
+	@bats "$(TEST_FILE)"
+
+# Smart test target that delegates to either test-all or test-specific
+test: check-bats
+	@if [ -z "$(TEST_FILE)" ]; then \
+		$(MAKE) test-all; \
+	else \
+		$(MAKE) test-specific TEST_FILE="$(TEST_FILE)"; \
+	fi
 
 # Check if BATS is installed
 check-bats:

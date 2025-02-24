@@ -18,6 +18,11 @@ register_cleanup() {
 
 # Internal function to call all registered cleanup functions
 _run_custom_cleanups() {
+    # Skip if we're in a test environment
+    if [[ "${BATS_TEST_FILENAME:-}" != "" ]]; then
+        return 0
+    fi
+
     for func in "${_CUSTOM_CLEANUP_FUNCS[@]}"; do
         if declare -f "$func" > /dev/null; then
             "$func"
@@ -29,10 +34,17 @@ _run_custom_cleanups() {
 
 # Default cleanup handler
 _default_cleanup() {
+    # Do not exit if we're in a test environment
+    if [[ "${BATS_TEST_FILENAME:-}" != "" ]]; then
+        return 0
+    fi
+
     _run_custom_cleanups
     echo -e "\n\033[1;33m⚠️  [EXIT] Script completed gracefully.\033[0m"
     exit 0
 }
 
-# Set the trap only once (so users don’t have to)
-trap _default_cleanup SIGINT SIGTERM EXIT
+# Set the trap only once (so users don't have to)
+if [[ "${BATS_TEST_FILENAME:-}" == "" ]]; then
+    trap _default_cleanup SIGINT SIGTERM EXIT
+fi

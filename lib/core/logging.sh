@@ -9,9 +9,11 @@ set -euo pipefail
 
 # Detect if terminal supports colors and unicode
 _detect_terminal_capabilities() {
-    # Check if NO_COLOR is set (respect user preference)
+    # Allow test override, but NO_COLOR takes precedence
     if [[ -n "${NO_COLOR:-}" ]]; then
         _USE_COLOR=false
+    elif [[ -n "${FORCE_COLOR:-}" ]]; then
+        _USE_COLOR=true
     else
         # Check if output is to terminal and terminal supports colors
         if [[ -t 1 ]] && [[ -n "${TERM:-}" ]] && command -v tput >/dev/null 2>&1; then
@@ -25,55 +27,65 @@ _detect_terminal_capabilities() {
         fi
     fi
 
-    # Check if terminal supports unicode
-    if [[ "$(locale charmap 2>/dev/null)" == *"UTF-8"* ]]; then
+    # Allow test override
+    if [[ -n "${FORCE_UNICODE:-}" ]]; then
         _USE_UNICODE=true
     else
-        _USE_UNICODE=false
+        # Check if terminal supports unicode
+        if [[ "$(locale charmap 2>/dev/null)" == *"UTF-8"* ]]; then
+            _USE_UNICODE=true
+        else
+            _USE_UNICODE=false
+        fi
     fi
+
+    # Define fallback symbols for non-unicode terminals
+    declare -gA _SYMBOLS=(
+        ["debug"]="DEBUG:"
+        ["info"]="INFO:"
+        ["success"]="OK:"
+        ["warning"]="WARN:"
+        ["error"]="ERROR:"
+        ["fatal"]="FATAL:"
+    )
+
+    # Define unicode symbols if supported
+    if [[ "${_USE_UNICODE:-false}" == "true" ]]; then
+        _SYMBOLS["debug"]="🔍"
+        _SYMBOLS["info"]="📌"
+        _SYMBOLS["success"]="✅"
+        _SYMBOLS["warning"]="⚠️"
+        _SYMBOLS["error"]="❌"
+        _SYMBOLS["fatal"]="💥"
+    fi
+
+    # Define color codes if supported
+    if [[ "${_USE_COLOR:-false}" == "true" ]]; then
+        _COLOR_DEBUG="\033[1;34m"   # Bold Blue
+        _COLOR_INFO="\033[1;32m"    # Bold Green
+        _COLOR_SUCCESS="\033[1;32m" # Bold Green
+        _COLOR_WARNING="\033[1;33m" # Bold Yellow
+        _COLOR_ERROR="\033[1;31m"   # Bold Red
+        _COLOR_FATAL="\033[1;31m"   # Bold Red
+        _COLOR_RESET="\033[0m"
+    else
+        _COLOR_DEBUG=""
+        _COLOR_INFO=""
+        _COLOR_SUCCESS=""
+        _COLOR_WARNING=""
+        _COLOR_ERROR=""
+        _COLOR_FATAL=""
+        _COLOR_RESET=""
+    fi
+}
+
+# Function to reinitialize terminal capabilities (useful for testing)
+reinit_terminal_capabilities() {
+    _detect_terminal_capabilities
 }
 
 # Initialize terminal capabilities
 _detect_terminal_capabilities
-
-# Define fallback symbols for non-unicode terminals
-declare -A _SYMBOLS=(
-    ["debug"]="DEBUG:"
-    ["info"]="INFO:"
-    ["success"]="OK:"
-    ["warning"]="WARN:"
-    ["error"]="ERROR:"
-    ["fatal"]="FATAL:"
-)
-
-# Define unicode symbols if supported
-if [[ "${_USE_UNICODE:-false}" == "true" ]]; then
-    _SYMBOLS["debug"]="🔍"
-    _SYMBOLS["info"]="📌"
-    _SYMBOLS["success"]="✅"
-    _SYMBOLS["warning"]="⚠️"
-    _SYMBOLS["error"]="❌"
-    _SYMBOLS["fatal"]="💥"
-fi
-
-# Define color codes if supported
-if [[ "${_USE_COLOR:-false}" == "true" ]]; then
-    _COLOR_DEBUG="\033[1;34m"   # Bold Blue
-    _COLOR_INFO="\033[1;32m"    # Bold Green
-    _COLOR_SUCCESS="\033[1;32m" # Bold Green
-    _COLOR_WARNING="\033[1;33m" # Bold Yellow
-    _COLOR_ERROR="\033[1;31m"   # Bold Red
-    _COLOR_FATAL="\033[1;31m"   # Bold Red
-    _COLOR_RESET="\033[0m"
-else
-    _COLOR_DEBUG=""
-    _COLOR_INFO=""
-    _COLOR_SUCCESS=""
-    _COLOR_WARNING=""
-    _COLOR_ERROR=""
-    _COLOR_FATAL=""
-    _COLOR_RESET=""
-fi
 
 # Internal logging function
 _log() {
@@ -86,8 +98,8 @@ _log() {
 
     # Handle multiline messages
     echo "$message" | while IFS= read -r line || [[ -n "$line" ]]; do
-        printf "%b%s [%s] [%s] %s%b\n" \
-            "$color" "$symbol" "${level^^}" "$timestamp" "$line" "$_COLOR_RESET"
+        printf "%s [%s] [%s] %s%b\n" \
+            "$symbol" "${level^^}" "$timestamp" "$line" "$_COLOR_RESET"
     done
 }
 
