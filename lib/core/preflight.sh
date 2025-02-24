@@ -5,6 +5,7 @@ if [[ -n "${_LIB_PREFLIGHT_LOADED:-}" ]]; then return; fi
 _LIB_PREFLIGHT_LOADED=true
 
 CORE_LIB_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+# shellcheck source=/dev/null
 . "$CORE_LIB_DIR/logging.sh"
 
 # Ensure script stops on errors and propagates failures properly.

@@ -15,7 +15,7 @@ _LIB_CORE_LOADED=true
 
 # Check if realpath is installed
 check_realpath() {
-    if ! command -v realpath &>/dev/null; then
+    if ! command -v realpath &> /dev/null; then
         echo -e "\033[1;31m❌ [ERROR] 'realpath' is not installed.\033[0m"
         echo "👉 Please install 'realpath' before running this script."
         if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -29,7 +29,9 @@ check_realpath() {
 # Load all library files (excluding core.sh itself)
 CORE_LIB_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)/core"
 for lib_file in "$CORE_LIB_DIR"/*.sh; do
-    if [[ "$lib_file" != "${BASH_SOURCE[0]}" ]]; then  # Skip core.sh itself
+    if [[ "$lib_file" != "${BASH_SOURCE[0]}" ]]; then # Skip core.sh itself
+        # Add shellcheck directive for dynamic source
+        # shellcheck source=/dev/null
         . "$lib_file"
     fi
 done
@@ -37,7 +39,7 @@ done
 # Prevent duplicate preflight checks
 if [[ -z "${_PREFLIGHT_REGISTERED:-}" ]]; then
     _PREFLIGHT_REGISTERED=true
-    register_preflight check_realpath  # Ensure realpath is installed
+    register_preflight check_realpath # Ensure realpath is installed
 fi
 
 # Prevent duplicate cleanup registrations
@@ -45,7 +47,7 @@ if [[ -z "${_CLEANUP_REGISTERED:-}" ]]; then
     _CLEANUP_REGISTERED=true
     register_cleanup() {
         local func_name="$1"
-        if [[ ! " ${_REGISTERED_CLEANUP_FUNCS[*]} " =~ " $func_name " ]]; then
+        if [[ ! " ${_REGISTERED_CLEANUP_FUNCS[*]} " =~ [[:space:]]${func_name}[[:space:]] ]]; then
             _REGISTERED_CLEANUP_FUNCS+=("$func_name")
         fi
     }

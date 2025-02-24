@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 
+# Ensure script stops on errors and propagates failures properly.
+set -euo pipefail
+
 # Source required libraries
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
+# shellcheck source=/dev/null
 . "$SCRIPT_DIR/core.sh"
+# shellcheck source=/dev/null
 . "$SCRIPT_DIR/slack.sh"
 
 # Usage function
@@ -16,12 +21,14 @@ usage() {
 # Notify Me
 notify() {
     # Record the start time (in milliseconds since epoch)
-    if command -v gdate >/dev/null 2>&1; then
+    if command -v gdate > /dev/null 2>&1; then
         # Use GNU date if available
-        local start_time=$(gdate +%s%3N)
+        local start_time
+        start_time=$(gdate +%s%3N)
     else
         # Use BSD date with manual milliseconds
-        local start_time=$(( $(date +%s) * 1000 + $(date +%N | cut -c1-3) ))
+        local start_time
+        start_time=$(($(date +%s) * 1000 + $(date +%N | cut -c1-3)))
     fi
 
     # Capture the command and arguments
@@ -35,10 +42,12 @@ notify() {
     local status_code=$?
 
     # Record the end time
-    if command -v gdate >/dev/null 2>&1; then
-        local end_time=$(gdate +%s%3N)
+    if command -v gdate > /dev/null 2>&1; then
+        local end_time
+        end_time=$(gdate +%s%3N)
     else
-        local end_time=$(( $(date +%s) * 1000 + $(date +%N | cut -c1-3) ))
+        local end_time
+        end_time=$(($(date +%s) * 1000 + $(date +%N | cut -c1-3)))
     fi
 
     # Calculate duration in milliseconds

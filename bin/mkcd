@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 
-# Prevent duplicate sourcing
-if [[ -n "${_LIB_UTILS_LOADED:-}" ]]; then return; fi
-_LIB_UTILS_LOADED=true
-
-# Ensure script stops on errors
+# Ensure script stops on errors and propagates failures properly.
 set -euo pipefail
 
 # Source required libraries
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
+# shellcheck source=/dev/null
 . "$SCRIPT_DIR/core.sh"
 
 # Usage function
@@ -26,7 +23,7 @@ mkcd() {
     fi
 
     local dir="$1"
-    
+
     # Create directory if it doesn't exist
     if [[ ! -d "$dir" ]]; then
         if ! mkdir -p "$dir"; then
@@ -35,13 +32,13 @@ mkcd() {
         fi
         log_debug "Created directory: $dir"
     fi
-    
+
     # Change to directory
     if ! cd "$dir"; then
         log_error "Failed to change to directory: $dir"
         return 1
     fi
-    
+
     log_debug "Changed to directory: $dir"
     return 0
 }

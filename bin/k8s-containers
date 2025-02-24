@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 
+# Ensure script stops on errors and propagates failures properly.
+set -euo pipefail
+
 # Source required libraries
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
+# shellcheck source=/dev/null
 . "$SCRIPT_DIR/core.sh"
 
 # Preflight check for kubectl
 check_kubectl() {
-    if ! command -v kubectl &>/dev/null; then
+    if ! command -v kubectl &> /dev/null; then
         log_error "kubectl is not installed"
         return 1
     fi
@@ -40,8 +44,8 @@ display_containers() {
     # Convert output to array format for table function
     local containers=()
     while IFS=$'\t' read -r name image; do
-        name=$(echo -n "$name" | xargs)    # Trim spaces
-        image=$(echo -n "$image" | xargs)  # Trim spaces
+        name=$(echo -n "$name" | xargs)   # Trim spaces
+        image=$(echo -n "$image" | xargs) # Trim spaces
         containers+=("$name/$image")
     done <<< "$output"
 
@@ -81,7 +85,7 @@ main() {
     local namespace_arg=()
     [[ -n "$namespace" ]] && namespace_arg=(-n "$namespace")
 
-    log_info "Fetching container details for pod: '$pod' ${namespace:+in namespace '$namespace'}..."
+    log_info "Fetching container details for pod: '$pod' ${namespace:+in namespace \"$namespace\"}..."
 
     # Fetch regular and init container details
     log_debug "Fetching regular containers..."

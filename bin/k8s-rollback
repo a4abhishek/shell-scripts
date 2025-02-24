@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 
+# Ensure script stops on errors and propagates failures properly.
+set -euo pipefail
+
 # Source required libraries
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
+# shellcheck source=/dev/null
 . "$SCRIPT_DIR/core.sh"
 
 # Preflight check for kubectl
 check_kubectl() {
-    if ! command -v kubectl &>/dev/null; then
+    if ! command -v kubectl &> /dev/null; then
         log_error "kubectl is not installed"
         return 1
     fi
@@ -29,7 +33,7 @@ usage() {
 # Detect Namespace of a Given Deployment
 get_deployment_namespace() {
     local deployment="$1"
-    
+
     local namespace
     namespace=$(kubectl get deployment --all-namespaces -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name" \
         | awk -v dep="$deployment" '$2 == dep {print $1; exit}')
@@ -48,7 +52,7 @@ get_latest_revision() {
     local namespace="$2"
 
     local latest_revision
-    latest_revision=$(kubectl rollout history deployment/"$deployment" -n "$namespace" --no-headers 2>/dev/null | awk '{print $1}' | tail -n1)
+    latest_revision=$(kubectl rollout history deployment/"$deployment" -n "$namespace" --no-headers 2> /dev/null | awk '{print $1}' | tail -n1)
 
     if [[ -z "$latest_revision" ]]; then
         log_error "No previous revision found for deployment '$deployment' in namespace '$namespace'."
@@ -67,7 +71,7 @@ rollback_deployment() {
     latest_revision=$(get_latest_revision "$deployment" "$namespace") || return 1
 
     log_info "Rolling back deployment '$deployment' to revision $latest_revision in namespace '$namespace'..."
-    
+
     if kubectl rollout undo deployment/"$deployment" --to-revision="$latest_revision" -n "$namespace"; then
         log_success "Rollback successful! Monitor status using:"
         log_info "kubectl rollout status deployment/$deployment -n $namespace"

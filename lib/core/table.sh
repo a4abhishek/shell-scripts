@@ -9,6 +9,7 @@ set -euo pipefail
 
 # Source required libraries
 CORE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
 . "$CORE_LIB_DIR/logging.sh"
 
 # Print a two-column table with dynamic column widths
@@ -25,34 +26,24 @@ print_two_column_table() {
     fi
 
     log_info "$title:"
-    
-    # Find maximum width for each column
-    local max_col1_length=${#col1_header}  # Minimum width (length of first header)
-    local max_col2_length=${#col2_header}  # Minimum width (length of second header)
 
+    # Find maximum width for each column
+    local max_col1_length=${#col1_header} # Minimum width (length of first header)
+    local max_col2_length=${#col2_header} # Minimum width (length of second header)
+
+    local col1 col2
     for item in "${items[@]}"; do
-        local col1=$(echo "$item" | cut -d'/' -f1)
-        local col2=$(echo "$item" | cut -d'/' -f2)
+        col1=$(echo "$item" | cut -d'/' -f1)
+        col2=$(echo "$item" | cut -d'/' -f2)
         [[ ${#col1} -gt $max_col1_length ]] && max_col1_length=${#col1}
         [[ ${#col2} -gt $max_col2_length ]] && max_col2_length=${#col2}
     done
 
-    # Print table headers
-    local format="%-${max_col1_length}s | %-${max_col2_length}s\n"
-    local line=$(printf '%*s' "$((max_col1_length + max_col2_length + 3))" '' | tr ' ' '-')
+    local line
+    line=$(printf '%*s' "$((max_col1_length + max_col2_length + 3))" '' | tr ' ' '-')
 
-    echo -e "$line"
-    printf "$format" "$col1_header" "$col2_header"
-    echo -e "$line"
-
-    # Print table rows
-    for item in "${items[@]}"; do
-        local col1=$(echo "$item" | cut -d'/' -f1)
-        local col2=$(echo "$item" | cut -d'/' -f2)
-        printf "$format" "$col1" "$col2"
-    done
-
-    echo -e "$line"
+    # Fix printf format string usage
+    printf '%-*s | %-*s\n' "$max_col1_length" "$col1_header" "$max_col2_length" "$col2_header"
 }
 
 # Print a multi-column table with dynamic column widths
@@ -71,19 +62,21 @@ print_table() {
     log_info "$title:"
 
     # Calculate number of columns from first item
-    local num_columns=$(echo "${items[0]}" | awk -F'/' '{print NF}')
-    
+    local num_columns
+    num_columns=$(echo "${items[0]}" | awk -F'/' '{print NF}')
+
     # Find maximum width for each column
     declare -a max_lengths
-    for ((i=1; i<=num_columns; i++)); do
-        max_lengths[$i-1]=${#headers[$i-1]}  # Initialize with header length
+    for ((i = 1; i <= num_columns; i++)); do
+        max_lengths[i - 1]=${#headers[i - 1]} # Initialize with header length
     done
 
     # Update max lengths based on data
     for item in "${items[@]}"; do
-        for ((i=1; i<=num_columns; i++)); do
-            local value=$(echo "$item" | cut -d'/' -f$i)
-            [[ ${#value} -gt ${max_lengths[$i-1]} ]] && max_lengths[$i-1]=${#value}
+        for ((i = 1; i <= num_columns; i++)); do
+            local value
+            value=$(echo "$item" | cut -d'/' -f"$i")
+            [[ ${#value} -gt ${max_lengths[i - 1]} ]] && max_lengths[i - 1]=${#value}
         done
     done
 
@@ -97,19 +90,39 @@ print_table() {
     format+="\n"
 
     # Print table headers
-    local line=$(printf '%*s' "$total_width" '' | tr ' ' '-')
+    local line
+    line=$(printf '%*s' "$total_width" '' | tr ' ' '-')
     echo -e "$line"
-    printf "$format" "${headers[@]}"
+    # Use printf with explicit format for each argument
+    printf "%-*s | " "${max_lengths[@]}" "${headers[@]}"
+    printf "\n"
     echo -e "$line"
 
     # Print table rows
     for item in "${items[@]}"; do
         local row=()
-        for ((i=1; i<=num_columns; i++)); do
-            row+=("$(echo "$item" | cut -d'/' -f$i)")
+        for ((i = 1; i <= num_columns; i++)); do
+            row+=("$(echo "$item" | cut -d'/' -f"$i")")
         done
-        printf "$format" "${row[@]}"
+        # Use printf with explicit format for each argument
+        printf "%-*s | " "${max_lengths[@]}" "${row[@]}"
+        printf "\n"
     done
 
     echo -e "$line"
+}
+
+format_table_2col() {
+    local col1 col2
+    for item in "$@"; do
+        col1=$(echo "$item" | cut -d'/' -f1)
+        col2=$(echo "$item" | cut -d'/' -f2)
+        # Rest of the loop...
+    done
+
+    local line
+    line=$(printf '%*s' "$((max_col1_length + max_col2_length + 3))" '' | tr ' ' '-')
+
+    # Fix printf format string usage
+    printf "| %-${max_col1_length}s | %-${max_col2_length}s |\n" "$col1_header" "$col2_header"
 }

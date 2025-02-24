@@ -4,90 +4,98 @@
 if [[ -n "${_LIB_INPUT_LOADED:-}" ]]; then return; fi
 _LIB_INPUT_LOADED=true
 
+# Ensure script stops on errors and propagates failures properly.
+set -euo pipefail
+
 # Source logging functions
 CORE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
 . "$CORE_LIB_DIR/logging.sh"
 
 # Read Multi-Line Input
 read_multiline_input() {
-  local input_file=$(mktemp)
-  trap "rm -f '$input_file'" EXIT
+    local input_file
+    input_file=$(mktemp)
+    # Use single quotes to prevent expansion
+    trap 'rm -f '"$input_file"'' EXIT
 
-  log_info "Enter your input (Press Ctrl+D when done):"
-  cat > "$input_file"
+    log_info "Enter your input (Press Ctrl+D when done):"
+    cat > "$input_file"
 
-  input=$(<"$input_file")
-  echo -e "$input"
+    local input
+    input=$(< "$input_file")
+    echo -e "$input"
 }
 
 # Open Editor for Input
 get_input_with_editor() {
-  local temp_file="$(mktemp)"
-  trap "rm -f '$temp_file'" EXIT
+    local temp_file
+    temp_file="$(mktemp)"
+    trap 'rm -f '"$temp_file"'' EXIT
 
-  if [[ -n "${EDITOR:-}" ]]; then
-    # Optional: Try setting TERM if unset for Vim (might not fully resolve warning)
-    if [[ -z "$TERM" ]]; then
-      export TERM=xterm-256color # Or 'xterm', 'vt100' - common defaults
+    if [[ -n "${EDITOR:-}" ]]; then
+        # Optional: Try setting TERM if unset for Vim (might not fully resolve warning)
+        if [[ -z "$TERM" ]]; then
+            export TERM=xterm-256color # Or 'xterm', 'vt100' - common defaults
+        fi
+        "$EDITOR" "$temp_file"
+        # Document the Vim warning:
+        # NOTE: Vim might display "Vim: Warning: Output is not to a terminal"
+        #       This is often benign and can be ignored if Vim still functions
+        #       for input. If it's problematic, try setting EDITOR=nano
+        #       or ensure your terminal environment is correctly configured.
+    else
+        nano "$temp_file"
     fi
-    "$EDITOR" "$temp_file"
-    # Document the Vim warning:
-    # NOTE: Vim might display "Vim: Warning: Output is not to a terminal"
-    #       This is often benign and can be ignored if Vim still functions
-    #       for input. If it's problematic, try setting EDITOR=nano
-    #       or ensure your terminal environment is correctly configured.
-  else
-    nano "$temp_file"
-  fi
-  cat "$temp_file"
+    cat "$temp_file"
 }
 
 # Prompt for Yes/No Confirmation
 confirm() {
-  local prompt="$1"
-  local default="$2"
+    local prompt="$1"
+    local default="$2"
 
-  if [[ "$default" == "y" ]]; then
-    prompt="${prompt} [Y/n]"
-  elif [[ "$default" == "n" ]]; then
-    prompt="${prompt} [y/N]"
-  else
-    prompt="${prompt} [y/n]"
-  fi
+    if [[ "$default" == "y" ]]; then
+        prompt="${prompt} [Y/n]"
+    elif [[ "$default" == "n" ]]; then
+        prompt="${prompt} [y/N]"
+    else
+        prompt="${prompt} [y/n]"
+    fi
 
-  while true; do
-    read -p "$prompt: " yn
-    yn=$(echo "$yn" | tr '[:upper:]' '[:lower:]')  # Convert to lowercase
-    case $yn in
-      y|yes) return 0 ;;
-      n|no) return 1 ;;
-      "") # Handle empty input based on default
-        if [[ "$default" == "y" ]]; then
-          return 0
-        elif [[ "$default" == "n" ]]; then
-          return 1
-        fi
-        ;;
-      *) echo "Please answer yes or no." ;;
-    esac
-  done
+    while true; do
+        read -r -p "$prompt: " yn
+        yn=$(echo "$yn" | tr '[:upper:]' '[:lower:]') # Convert to lowercase
+        case $yn in
+            y | yes) return 0 ;;
+            n | no) return 1 ;;
+            "") # Handle empty input based on default
+                if [[ "$default" == "y" ]]; then
+                    return 0
+                elif [[ "$default" == "n" ]]; then
+                    return 1
+                fi
+                ;;
+            *) echo "Please answer yes or no." ;;
+        esac
+    done
 }
 
 # Prompt for Input with Default
 prompt_with_default() {
-  local prompt="$1"
-  local default="$2"
-  local input
+    local prompt="$1"
+    local default="$2"
+    local input
 
-  if [[ -n "$default" ]]; then
-    prompt="${prompt} [$default]"
-  fi
+    if [[ -n "$default" ]]; then
+        prompt="${prompt} [$default]"
+    fi
 
-  read -p "$prompt: " input
+    read -r -p "$prompt: " input
 
-  if [[ -z "$input" ]]; then
-    echo "$default"
-  else
-    echo "$input"
-  fi
+    if [[ -z "$input" ]]; then
+        echo "$default"
+    else
+        echo "$input"
+    fi
 }

@@ -35,7 +35,7 @@ _detect_terminal_features() {
             export ARCH_NAME="x86_64"
             export ARCH_FAMILY="x86"
             ;;
-        arm64|aarch64)
+        arm64 | aarch64)
             export ARCH_NAME="arm64"
             export ARCH_FAMILY="arm"
             ;;
@@ -50,19 +50,19 @@ _detect_terminal_features() {
     esac
 
     # Package manager detection
-    if command -v brew >/dev/null 2>&1; then
+    if command -v brew > /dev/null 2>&1; then
         export HAS_HOMEBREW=true
     else
         export HAS_HOMEBREW=false
     fi
 
-    if command -v apt-get >/dev/null 2>&1; then
+    if command -v apt-get > /dev/null 2>&1; then
         export HAS_APT=true
     else
         export HAS_APT=false
     fi
 
-    if command -v yum >/dev/null 2>&1; then
+    if command -v yum > /dev/null 2>&1; then
         export HAS_YUM=true
     else
         export HAS_YUM=false
@@ -76,19 +76,19 @@ _detect_terminal_features() {
     fi
 
     # Common tools detection
-    if command -v curl >/dev/null 2>&1; then
+    if command -v curl > /dev/null 2>&1; then
         export HAS_CURL=true
     else
         export HAS_CURL=false
     fi
 
-    if command -v wget >/dev/null 2>&1; then
+    if command -v wget > /dev/null 2>&1; then
         export HAS_WGET=true
     else
         export HAS_WGET=false
     fi
 
-    if command -v git >/dev/null 2>&1; then
+    if command -v git > /dev/null 2>&1; then
         export HAS_GIT=true
     else
         export HAS_GIT=false
@@ -100,8 +100,8 @@ _detect_terminal_features() {
     elif [[ -n "${FORCE_COLOR:-}" ]]; then
         export HAS_COLOR_SUPPORT=true
     else
-        if [[ -t 1 ]] && [[ -n "${TERM:-}" ]] && command -v tput >/dev/null 2>&1; then
-            if [[ $(tput colors 2>/dev/null || echo 0) -ge 8 ]]; then
+        if [[ -t 1 ]] && [[ -n "${TERM:-}" ]] && command -v tput > /dev/null 2>&1; then
+            if [[ $(tput colors 2> /dev/null || echo 0) -ge 8 ]]; then
                 export HAS_COLOR_SUPPORT=true
             else
                 export HAS_COLOR_SUPPORT=false
@@ -115,7 +115,7 @@ _detect_terminal_features() {
     if [[ -n "${FORCE_UNICODE:-}" ]]; then
         export HAS_UNICODE_SUPPORT=true
     else
-        if [[ "$(locale charmap 2>/dev/null)" == *"UTF-8"* ]]; then
+        if [[ "$(locale charmap 2> /dev/null)" == *"UTF-8"* ]]; then
             export HAS_UNICODE_SUPPORT=true
         else
             export HAS_UNICODE_SUPPORT=false
@@ -123,7 +123,7 @@ _detect_terminal_features() {
     fi
 
     # Date command feature detection
-    if command -v gdate >/dev/null 2>&1; then
+    if command -v gdate > /dev/null 2>&1; then
         export HAS_GNU_DATE=true
     else
         # On Linux, the default date is GNU date

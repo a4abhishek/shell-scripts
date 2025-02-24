@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 
+# Ensure script stops on errors and propagates failures properly.
+set -euo pipefail
+
 # Source required libraries
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
+# shellcheck source=/dev/null
 . "$SCRIPT_DIR/core.sh"
 
 # Preflight check for kubectl
 check_kubectl() {
-    if ! command -v kubectl &>/dev/null; then
+    if ! command -v kubectl &> /dev/null; then
         log_error "kubectl is not installed"
         return 1
     fi
@@ -15,7 +19,7 @@ check_kubectl() {
 
 # Preflight check for jq
 check_jq() {
-    if ! command -v jq &>/dev/null; then
+    if ! command -v jq &> /dev/null; then
         log_error "jq is not installed"
         return 1
     fi
@@ -49,7 +53,7 @@ main() {
                 ;;
         esac
     done
-    shift $((OPTIND -1))
+    shift $((OPTIND - 1))
 
     # Ensure a ConfigMap name is provided
     if [[ -z "$1" ]]; then
@@ -62,13 +66,13 @@ main() {
 
     # Find pods using the ConfigMap as a volume
     log_debug "Checking for ConfigMap usage as a volume..."
-    local pods_using_volume=($(kubectl get pods $namespace_flag -o json | jq -r \
-        ".items[] | select(.spec.volumes[]?.configMap.name == \"$configmap_name\") | .metadata.namespace + \"/\" + .metadata.name"))
+    mapfile -t pods_using_volume < <(kubectl get pods "$namespace_flag" -o json | jq -r \
+        '.items[] | select(.spec.volumes[]?.configMap.name? == "'"$configmap_name"'") | .metadata.name')
 
     # Find pods using the ConfigMap as an environment variable
     log_debug "Checking for ConfigMap usage as an environment variable..."
-    local pods_using_env=($(kubectl get pods $namespace_flag -o json | jq -r \
-        ".items[] | select(.spec.containers[].env[]?.valueFrom.configMapKeyRef.name == \"$configmap_name\") | .metadata.namespace + \"/\" + .metadata.name"))
+    mapfile -t pods_using_env < <(kubectl get pods "$namespace_flag" -o json | jq -r \
+        '.items[] | select(.spec.containers[].env[]?.valueFrom.configMapKeyRef.name? == "'"$configmap_name"'") | .metadata.name')
 
     # Display results in a prettified format
     print_two_column_table "Pods using '$configmap_name' as a Volume" "NAMESPACE" "POD NAME" "${pods_using_volume[@]}"

@@ -9,8 +9,8 @@ set -euo pipefail
 
 # Source feature detection
 CORE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
 . "$CORE_LIB_DIR/features.sh"
-
 
 _detect_terminal_capabilities() {
     # Allow test override, but NO_COLOR takes precedence
@@ -72,7 +72,6 @@ _detect_terminal_capabilities
 _log() {
     local level="$1"
     local message="$2"
-    local color="$3"
     local symbol="${_SYMBOLS[${level,,}]}"
     local timestamp
     timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
@@ -86,26 +85,26 @@ _log() {
 
 log_debug() {
     [[ "${LOG_LEVEL:-}" == "debug" ]] || return 0
-    _log "debug" "$1" "$_COLOR_DEBUG" >&2
+    _log "debug" "$1" >&2
 }
 
 log_info() {
-    _log "info" "$1" "$_COLOR_INFO"
+    _log "info" "$1"
 }
 
 log_success() {
-    _log "success" "$1" "$_COLOR_SUCCESS"
+    _log "success" "$1"
 }
 
 log_warning() {
-    _log "warning" "$1" "$_COLOR_WARNING"
+    _log "warning" "$1"
 }
 
 log_error() {
-    _log "error" "$1" "$_COLOR_ERROR" >&2
+    _log "error" "$1" >&2
 }
 
 log_fatal() {
-    _log "fatal" "$1" "$_COLOR_FATAL" >&2
+    _log "fatal" "$1" >&2
     exit 1
 }

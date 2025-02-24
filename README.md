@@ -98,6 +98,7 @@ To use the library functions, source the core loader. This will automatically lo
 
 # Determine the library directory and load core functions
 LIB_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
+# shellcheck source=/dev/null
 . "$LIB_DIR/core.sh"
 
 # Your script logic here...

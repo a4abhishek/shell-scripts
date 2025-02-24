@@ -45,7 +45,7 @@ Before submitting a pull request (PR), please:
 
 ### 4. Coding Guidelines
 
-- **Consistency:** Follow the existing code style. Look at the code in the `lib/` and `bin/` directories for examples.
+- **Consistency:** Follow the existing code style. Refer to the examples in the `lib/` and `bin/` directories.
 - **Duplicate Prevention:** Use load guards in libraries to prevent multiple sourcing.
 - **Documentation:** Update documentation and add comments where necessary.
 - **Tests:** Ensure that new code is covered by tests. Use BATS for test scripts and run `make test` before submitting a PR.
@@ -56,7 +56,7 @@ Before submitting a pull request (PR), please:
 - Use the imperative mood (e.g., "Fix bug", "Add feature").
 - Reference any related issues by including the issue number (e.g., `Fixes #42`).
 - Keep commits atomic: each commit should represent a single logical change.
-- Limit your commit subject line to around 50 characters, with the body wrapped at around 72 characters per line.
+- Limit your commit subject line to around 50 characters, and wrap the body at around 72 characters per line.
 
 ### 6. Testing
 
@@ -65,6 +65,50 @@ Before submitting a PR, please run the test suite using `make test` or `./run_te
 ### 7. Code of Conduct
 
 Please review our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing. We strive to create a welcoming and respectful community for everyone.
+
+---
+
+## Code Quality Checks
+
+We maintain high code quality standards through automated checks that run:
+
+- **Before each commit** (via pre-commit hooks)
+- **During CI/CD** (on pull requests)
+
+### Pre-commit Checks
+
+The following checks run automatically before each commit:
+
+1. **Format Check** (`make format-check`)
+   - Ensures consistent formatting using `shfmt`.
+   - Run `make format` to automatically fix formatting issues.
+
+2. **ShellCheck** (`make shellcheck`)
+   - A static analysis tool that provides warnings and suggestions.
+   - Follows best practices for shell scripting to help avoid common pitfalls and bugs.
+
+3. **Custom Checks** (`make custom-checks`)
+   - Validates proper shebang lines.
+   - Ensures strict mode is enabled.
+   - Verifies core library sourcing in `bin/` scripts.
+
+### Setting Up Checks
+
+The checks are automatically installed when you clone the repository. If you need to reinstall them, run:
+
+```bash
+make setup-hooks
+```
+
+### Skipping Checks
+
+In rare cases where you need to skip the pre-commit checks (not recommended), you can use:
+
+```bash
+git commit -m "Your message" --no-verify
+```
+
+**Note:** While you can skip local checks, the same checks will run in CI and may block your PR if they fail.
 
 ---
 
