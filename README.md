@@ -1,5 +1,7 @@
 # Shell Scripts Library
 
+[![Shell Scripts CI](https://github.com/a4abhishek/shell-scripts/actions/workflows/shell-scripts.yml/badge.svg?branch=main)](https://github.com/a4abhishek/shell-scripts/actions/workflows/shell-scripts.yml)
+
 A collection of robust shell script utilities and libraries for building reliable, maintainable command‐line tools.
 
 ## Features
@@ -373,7 +375,7 @@ make ghrelease VERSION=v1.2.3   # Create the GitHub release
 
 ## Contributing
 
-We welcome contributions to help improve the Shell Scripts Library! Whether you’re fixing bugs, adding new features, or updating documentation, your input is appreciated. To contribute, please follow these steps the [CONTRIBUTING.md](CONTRIBUTING.md).
+We welcome contributions to help improve the Shell Scripts Library! Whether you're fixing bugs, adding new features, or updating documentation, your input is appreciated. To contribute, please follow these steps in the [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

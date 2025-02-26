@@ -8,6 +8,15 @@ on:
       - 'test/**'
       - 'Makefile'
       - '.github/workflows/shell-scripts.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'bin/**'
+      - 'lib/**'
+      - 'test/**'
+      - 'Makefile'
+      - '.github/workflows/shell-scripts.yml'
 
 jobs:
   lint:
