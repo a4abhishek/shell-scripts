@@ -31,22 +31,28 @@ read_multiline_input() {
 get_input_with_editor() {
     local temp_file
     temp_file="$(mktemp)"
-    trap 'rm -f '"$temp_file"'' EXIT
+    trap 'rm -f "$temp_file"' EXIT
 
-    if [[ -n "${EDITOR:-}" ]]; then
-        # Optional: Try setting TERM if unset for Vim (might not fully resolve warning)
-        if [[ -z "$TERM" ]]; then
-            export TERM=xterm-256color # Or 'xterm', 'vt100' - common defaults
-        fi
-        "$EDITOR" "$temp_file"
-        # Document the Vim warning:
-        # NOTE: Vim might display "Vim: Warning: Output is not to a terminal"
-        #       This is often benign and can be ignored if Vim still functions
-        #       for input. If it's problematic, try setting EDITOR=nano
-        #       or ensure your terminal environment is correctly configured.
-    else
-        nano "$temp_file"
+    # Populate with initial content (if provided)
+    local initial_content
+    initial_content="${1:-}"
+    if [[ -n "$initial_content" ]]; then
+        echo "$initial_content" > "$temp_file"
     fi
+
+    local editor
+    editor="${EDITOR:-${VISUAL:-nano}}" # Fallback to nano if neither is set
+
+    # Run the editor directly connected to the terminal
+    "$editor" "$temp_file" < /dev/tty > /dev/tty 2>&1
+
+    local editor_exit_status=$?
+    if [[ $editor_exit_status -ne 0 ]]; then
+        # log_error "Editor exited with status $editor_exit_status"
+        return 1
+    fi
+
+    # Read the result from the temp file
     cat "$temp_file"
 }
 
