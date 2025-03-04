@@ -7,6 +7,11 @@ _LIB_EXIT_LOADED=true
 # Ensure script stops on errors and propagates failures properly.
 set -euo pipefail
 
+# Source logging functions
+CORE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$CORE_LIB_DIR/logging.sh"
+
 # Array to store user-defined cleanup functions
 declare -a _CUSTOM_CLEANUP_FUNCS
 
@@ -27,7 +32,7 @@ _run_custom_cleanups() {
         if declare -f "$func" > /dev/null; then
             "$func"
         else
-            echo -e "\033[1;31m❌ [ERROR] Cleanup function '$func' not found!\033[0m" >&2
+            log_error "Cleanup function '$func' not found!"
         fi
     done
 }
@@ -40,7 +45,7 @@ _default_cleanup() {
     fi
 
     _run_custom_cleanups
-    echo -e "\n\033[1;33m⚠️  [EXIT] Script completed gracefully.\033[0m"
+    log "⚠️" "EXIT" "" "Exiting gracefully." "$LOG_NONERROR_FD" "\033[1;33m"
     exit 0
 }
 

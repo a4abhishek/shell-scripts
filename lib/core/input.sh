@@ -48,7 +48,7 @@ get_input_with_editor() {
 
     local editor_exit_status=$?
     if [[ $editor_exit_status -ne 0 ]]; then
-        # log_error "Editor exited with status $editor_exit_status"
+        log_error "Editor exited with status $editor_exit_status"
         return 1
     fi
 
