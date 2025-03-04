@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Source required libraries
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/core.sh"
+
+# Usage function
+usage() {
+    log_error "Usage: $(basename "$0") < input.yaml"
+    log_info "  Reads a Kubernetes YAML from STDIN, removes read-only fields, and prints a clean, colorful YAML."
+    log_info "  Example: cat deployment.yaml | $(basename "$0")"
+    exit 1
+}
+
+# Preflight check for required commands
+check_requirements() {
+    local commands=("yq")
+    for cmd in "${commands[@]}"; do
+        if ! command -v "$cmd" &> /dev/null; then
+            log_error "Required command not found: $cmd"
+            return 1
+        fi
+    done
+    return 0
+}
+register_preflight check_requirements
+
+# Optionally use 'bat' for colorized output if available; fallback to cat if not.
+if command -v bat &> /dev/null; then
+    COLOR_CMD="bat --language yaml --paging=never"
+else
+    COLOR_CMD="yq"
+fi
+
+# Main processing function
+main() {
+    # If no input is piped, show usage.
+    if [ -t 0 ]; then
+        usage
+    fi
+
+    # Read YAML from STDIN.
+    local input_yaml
+    input_yaml=$(cat)
+
+    # Remove read-only and system-generated fields using yq.
+    # Fields removed:
+    #   - .status (entire block)
+    #   - .metadata.creationTimestamp, .metadata.generation, .metadata.resourceVersion, .metadata.uid
+    #   - .metadata.annotations."deployment.kubernetes.io/revision"
+    #   - .metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"
+    #   - .spec.template.metadata.creationTimestamp
+    local cleaned_yaml
+    cleaned_yaml=$(echo "$input_yaml" | yq eval '
+      del(
+        .status,
+        .metadata.creationTimestamp,
+        .metadata.generation,
+        .metadata.resourceVersion,
+        .metadata.uid,
+        .metadata.annotations."deployment.kubernetes.io/revision",
+        .metadata.annotations."kubectl.kubernetes.io/last-applied-configuration",
+        .spec.template.metadata.creationTimestamp
+      )
+    ' -)
+
+    # Print the cleaned YAML with color if possible.
+    echo "$cleaned_yaml" | eval "$COLOR_CMD"
+}
+
+# Execute main function
+main "$@"
