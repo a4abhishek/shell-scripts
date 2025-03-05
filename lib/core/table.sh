@@ -12,127 +12,141 @@ CORE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$CORE_LIB_DIR/logging.sh"
 
-# Print a two-column table with dynamic column widths
+# Helper: Calculate maximum column widths.
+# Arguments:
+#   $1: delimiter (optional, default '/')
+#   $2: name of array variable containing headers
+#   $3: name of array variable containing items
+# Returns: Each maximum length on its own line.
+calculate_max_widths() {
+    local delimiter="${1:-/}"
+    local headers_name="$2"
+    local items_name="$3"
+
+    # Use namerefs (requires Bash 4.3+) to avoid eval and brace expansion issues.
+    declare -n headers_ref="$headers_name"
+    local -a headers=("${headers_ref[@]}")
+    declare -n items_ref="$items_name"
+    local -a items=("${items_ref[@]}")
+
+    local num_columns=${#headers[@]}
+    local -a max_lengths=()
+    local i
+
+    # Initialize with header lengths.
+    for ((i = 0; i < num_columns; i++)); do
+        max_lengths[i]=${#headers[i]}
+    done
+
+    local item fields j
+    for item in "${items[@]}"; do
+        IFS="$delimiter" read -r -a fields <<< "$item"
+        # Pad missing fields if needed.
+        while ((${#fields[@]} < num_columns)); do
+            fields+=("")
+        done
+        for ((j = 0; j < num_columns; j++)); do
+            local field_length=${#fields[j]}
+            if ((field_length > max_lengths[j])); then
+                max_lengths[j]=$field_length
+            fi
+        done
+    done
+
+    for val in "${max_lengths[@]}"; do
+        echo "$val"
+    done
+}
+
+# Generic multi-column table printer.
+# Arguments:
+#   $1: Title (printed via log_info)
+#   $2: Delimiter for splitting items (optional, default '/')
+#   $3: name of array variable containing headers
+#   $4: name of array variable containing rows
+print_table() {
+    local title="$1"
+    local delimiter="${2:-/}"
+    local headers_name="$3"
+    local items_name="$4"
+
+    # Use namerefs to safely get the arrays.
+    declare -n headers_ref="$headers_name"
+    local -a headers=("${headers_ref[@]}")
+    declare -n items_ref="$items_name"
+    local -a items=("${items_ref[@]}")
+
+    if [[ ${#items[@]} -eq 0 ]]; then
+        log_info "$title: No items found."
+        return
+    fi
+
+    log_info "$title:"
+
+    # Use mapfile to avoid word-splitting issues (SC2207).
+    mapfile -t max_lengths < <(calculate_max_widths "$delimiter" "$headers_name" "$items_name")
+
+    local num_columns=${#headers[@]}
+
+    # Build the format string (adds 1 extra character per column for padding).
+    local format=""
+    local total_width=0
+    local i col_width
+    for ((i = 0; i < num_columns; i++)); do
+        col_width=$((max_lengths[i] + 1))
+        if ((i < num_columns - 1)); then
+            format+="%-${col_width}s| "
+            total_width=$((total_width + col_width + 2))
+        else
+            format+="%-${col_width}s"
+            total_width=$((total_width + col_width))
+        fi
+    done
+    format="${format}\n"
+
+    # Create a horizontal separator.
+    local line
+    line=$(printf '%*s' "$total_width" '' | tr ' ' '-')
+
+    # Print header and rows.
+    echo "$line"
+    # Disable SC2059 warning here since the format string is built internally.
+    # shellcheck disable=SC2059
+    printf -- "$format" "${headers[@]}"
+    echo "$line"
+    local item fields
+    for item in "${items[@]}"; do
+        IFS="$delimiter" read -r -a fields <<< "$item"
+        while ((${#fields[@]} < num_columns)); do
+            fields+=("")
+        done
+        # shellcheck disable=SC2059
+        printf -- "$format" "${fields[@]}"
+    done
+    echo "$line"
+}
+
+# Two-column table printer (wrapper around print_table).
+# Arguments:
+#   $1: Title (log_info)
+#   $2: Column 1 header (default: COLUMN1)
+#   $3: Column 2 header (default: COLUMN2)
+#   $4...: Items (each item should have fields separated by the delimiter, default '/')
 print_two_column_table() {
     local title="$1"
     local col1_header="${2:-COLUMN1}"
     local col2_header="${3:-COLUMN2}"
     shift 3
-    local items=("$@")
-
-    if [[ ${#items[@]} -eq 0 ]]; then
-        log_info "$title: No items found."
-        return
-    fi
-
-    log_info "$title:"
-
-    # Determine maximum widths for each column (start with header lengths)
-    local max_col1_length=${#col1_header}
-    local max_col2_length=${#col2_header}
-    local col1 col2
-
-    for item in "${items[@]}"; do
-        col1=$(echo "$item" | cut -d'/' -f1)
-        col2=$(echo "$item" | cut -d'/' -f2)
-        [[ ${#col1} -gt $max_col1_length ]] && max_col1_length=${#col1}
-        [[ ${#col2} -gt $max_col2_length ]] && max_col2_length=${#col2}
-    done
-
-    # Calculate the total width for the horizontal separator (columns plus " | " separator)
-    local total_width=$((max_col1_length + max_col2_length + 3))
-    local line
-    line=$(printf '%*s' "$total_width" '' | tr ' ' '-')
-
-    # Print the table: separator, header, separator, rows, and final separator.
-    echo "$line"
-    printf "%-*s | %-*s\n" "$max_col1_length" "$col1_header" "$max_col2_length" "$col2_header"
-    echo "$line"
-    for item in "${items[@]}"; do
-        col1=$(echo "$item" | cut -d'/' -f1)
-        col2=$(echo "$item" | cut -d'/' -f2)
-        printf "%-*s | %-*s\n" "$max_col1_length" "$col1" "$max_col2_length" "$col2"
-    done
-    echo "$line"
+    local -a items=("$@")
+    local -a headers=("$col1_header" "$col2_header")
+    print_table "$title" "/" headers items
 }
 
-# Print a multi-column table with dynamic column widths
-print_table() {
-    local title="$1"
+# Optional helper to format a table row from an array of fields.
+# Usage: row=$(format_table_row "/" "field1" "field2" "field3")
+format_table_row() {
+    local delimiter="${1:-|}"
     shift
-    local headers=("$1")
-    shift
-    local items=("$@")
-
-    if [[ ${#items[@]} -eq 0 ]]; then
-        log_info "$title: No items found."
-        return
-    fi
-
-    log_info "$title:"
-
-    # Calculate number of columns from first item
-    local num_columns
-    num_columns=$(echo "${items[0]}" | awk -F'/' '{print NF}')
-
-    # Find maximum width for each column
-    declare -a max_lengths
-    for ((i = 1; i <= num_columns; i++)); do
-        max_lengths[i - 1]=${#headers[i - 1]} # Initialize with header length
-    done
-
-    # Update max lengths based on data
-    for item in "${items[@]}"; do
-        for ((i = 1; i <= num_columns; i++)); do
-            local value
-            value=$(echo "$item" | cut -d'/' -f"$i")
-            [[ ${#value} -gt ${max_lengths[i - 1]} ]] && max_lengths[i - 1]=${#value}
-        done
-    done
-
-    # Build format string
-    local format=""
-    local total_width=0
-    for length in "${max_lengths[@]}"; do
-        format+="%-${length}s | "
-        total_width=$((total_width + length + 3))
-    done
-    format+="\n"
-
-    # Print table headers
-    local line
-    line=$(printf '%*s' "$total_width" '' | tr ' ' '-')
-    echo -e "$line"
-    # Use printf with explicit format for each argument
-    printf "%-*s | " "${max_lengths[@]}" "${headers[@]}"
-    printf "\n"
-    echo -e "$line"
-
-    # Print table rows
-    for item in "${items[@]}"; do
-        local row=()
-        for ((i = 1; i <= num_columns; i++)); do
-            row+=("$(echo "$item" | cut -d'/' -f"$i")")
-        done
-        # Use printf with explicit format for each argument
-        printf "%-*s | " "${max_lengths[@]}" "${row[@]}"
-        printf "\n"
-    done
-
-    echo -e "$line"
-}
-
-format_table_2col() {
-    local col1 col2
-    for item in "$@"; do
-        col1=$(echo "$item" | cut -d'/' -f1)
-        col2=$(echo "$item" | cut -d'/' -f2)
-        # Rest of the loop...
-    done
-
-    local line
-    line=$(printf '%*s' "$((max_col1_length + max_col2_length + 3))" '' | tr ' ' '-')
-
-    # Fix printf format string usage
-    printf "| %-${max_col1_length}s | %-${max_col2_length}s |\n" "$col1_header" "$col2_header"
+    local IFS="$delimiter"
+    echo "$*"
 }

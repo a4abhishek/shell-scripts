@@ -49,8 +49,12 @@ display_containers() {
         containers+=("$name/$image")
     done <<< "$output"
 
-    # Display using our table library
-    print_two_column_table "$title in Pod '$pod_name'" "CONTAINER NAME" "IMAGE" "${containers[@]}"
+    # Define headers array for the table.
+    local -a headers=("CONTAINER NAME" "IMAGE")
+    # Mark headers as used to avoid SC2034.
+    : "${headers[@]}"
+
+    print_table "$title in Pod '$pod_name'" "/" headers containers
 }
 
 main() {

@@ -113,14 +113,17 @@ main() {
     readarray -t unique_env_cms < <(printf '%s\n' "${env_configmaps[@]+"${env_configmaps[@]}"}" | sort -u | grep -v '^\s*$')
 
     # Display results using two-column table only if there are entries.
+    local -a headers=("CONTAINER" "CONFIGMAP")
+    # Mark headers as used to avoid SC2034
+    : "${headers[@]}"
     if [[ ${#unique_volume_cms[@]} -gt 0 ]]; then
-        print_two_column_table "ConfigMaps mounted as volumes" "CONTAINER" "CONFIGMAP" "${unique_volume_cms[@]}"
+        print_table "ConfigMaps mounted as volumes" "/" headers unique_volume_cms
     else
         log_info "No ConfigMaps found mounted as volumes"
     fi
 
     if [[ ${#unique_env_cms[@]} -gt 0 ]]; then
-        print_two_column_table "ConfigMaps used in environment variables" "CONTAINER" "CONFIGMAP" "${unique_env_cms[@]}"
+        print_table "ConfigMaps used in environment variables" "/" header unique_env_cms
     else
         log_info "No ConfigMaps found in environment variables"
     fi

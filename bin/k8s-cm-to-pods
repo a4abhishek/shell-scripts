@@ -75,14 +75,17 @@ main() {
         '.items[] | select(.spec.containers[].env[]?.valueFrom.configMapKeyRef.name? == "'"$configmap_name"'") | .metadata.namespace + "/" + .metadata.name' | sort)
 
     # Display results in a prettified format
+    local -a headers=("NAMESPACE" "POD NAME")
+    # Mark headers as used to avoid SC2034
+    : "${headers[@]}"
     if [[ ${#pods_using_volume[@]} -gt 0 ]]; then
-        print_two_column_table "Pods using '$configmap_name' as a Volume" "NAMESPACE" "POD NAME" "${pods_using_volume[@]}"
+        print_table "Pods using '$configmap_name' as a Volume" "/" headers pods_using_volume
     else
         log_info "No pods found using '$configmap_name' as a Volume"
     fi
 
     if [[ ${#pods_using_env[@]} -gt 0 ]]; then
-        print_two_column_table "Pods using '$configmap_name' as an Environment Variable" "NAMESPACE" "POD NAME" "${pods_using_env[@]}"
+        print_table "Pods using '$configmap_name' as an Environment Variable" "/" headers pods_using_env
     else
         log_info "No pods found using '$configmap_name' as an Environment Variable"
     fi
