@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+
+# Ensure script stops on errors and propagates failures properly.
+set -euo pipefail
+
+# Source required libraries
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/core.sh"
+
+# Preflight check for kubectl
+check_kubectl() {
+    if ! command -v kubectl &> /dev/null; then
+        log_error "kubectl is not installed"
+        return 1
+    fi
+    return 0
+}
+
+# Preflight check for jq
+check_jq() {
+    if ! command -v jq &> /dev/null; then
+        log_error "jq is not installed"
+        return 1
+    fi
+    return 0
+}
+
+# Register preflight checks
+register_preflight check_kubectl
+register_preflight check_jq
+
+# Usage function
+usage() {
+    log_error "Usage: $(basename "$0") [-n namespace] <pod-name-pattern>"
+    log_info "  -n : (Optional) Specify a namespace. If omitted, searches in all namespaces."
+    exit 1
+}
+
+main() {
+    # Default to querying all namespaces
+    local namespace_flag="-A"
+    local pod_pattern=""
+
+    # Parse arguments
+    while getopts "n:" opt; do
+        case "${opt}" in
+            n)
+                namespace_flag="-n ${OPTARG}"
+                ;;
+            *)
+                usage
+                ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    # Ensure a pod pattern is provided
+    if [[ -z "$1" ]]; then
+        log_error "Pod name pattern is required."
+        usage
+    fi
+
+    pod_pattern="$1"
+    log_info "Searching for ConfigMaps used by pods matching: '$pod_pattern' in ${namespace_flag/-A/'all namespaces'}..."
+
+    # Get matching pods with both namespace and pod name (format: namespace/pod)
+    mapfile -t matching_pods < <(kubectl get pods "$namespace_flag" --no-headers | grep -i "$pod_pattern" | awk '{print $1 "/" $2}')
+
+    if [[ ${#matching_pods[@]} -eq 0 ]]; then
+        log_error "No pods found matching pattern: '$pod_pattern'"
+        exit 1
+    fi
+
+    log_success "Found ${#matching_pods[@]} matching pods"
+
+    # Initialize arrays for container-level ConfigMaps
+    declare -a volume_configmaps=()
+    declare -a env_configmaps=()
+
+    # Process each pod
+    for pod_entry in "${matching_pods[@]}"; do
+        local namespace pod
+        # Split namespace and pod name
+        namespace=$(echo "$pod_entry" | cut -d'/' -f1)
+        pod=$(echo "$pod_entry" | cut -d'/' -f2-)
+        log_debug "Analyzing pod: $pod in namespace: $namespace"
+
+        # Extract ConfigMaps used as volumes with container information.
+        # Build a mapping of volume names to ConfigMap names and then iterate over each container's volumeMounts.
+        mapfile -t pod_volumes < <(kubectl get pod "$pod" -n "$namespace" -o json | jq -r '
+            (reduce (.spec.volumes[]? | select(.configMap != null)) as $v ({}; .[$v.name] = $v.configMap.name)) as $volmap
+            | .spec.containers[] | . as $c
+            | (.volumeMounts[]? | select($volmap[.name] != null) | "\($c.name)/\($volmap[.name])")
+        ')
+        for cm in "${pod_volumes[@]}"; do
+            volume_configmaps+=("$cm")
+        done
+
+        # Extract ConfigMaps used in environment variables with container information.
+        mapfile -t pod_envs < <(kubectl get pod "$pod" -n "$namespace" -o json | jq -r '
+            .spec.containers[]
+            | . as $c
+            | (.env[]? | select(.valueFrom.configMapKeyRef != null) | "\($c.name)/\(.valueFrom.configMapKeyRef.name)")
+        ')
+        for cm in "${pod_envs[@]}"; do
+            env_configmaps+=("$cm")
+        done
+    done
+
+    # Remove duplicates, sort, and filter out any empty lines
+    readarray -t unique_volume_cms < <(printf '%s\n' "${volume_configmaps[@]+"${volume_configmaps[@]}"}" | sort -u | grep -v '^\s*$')
+    readarray -t unique_env_cms < <(printf '%s\n' "${env_configmaps[@]+"${env_configmaps[@]}"}" | sort -u | grep -v '^\s*$')
+
+    # Display results using two-column table only if there are entries.
+    if [[ ${#unique_volume_cms[@]} -gt 0 ]]; then
+        print_two_column_table "ConfigMaps mounted as volumes" "CONTAINER" "CONFIGMAP" "${unique_volume_cms[@]}"
+    else
+        log_info "No ConfigMaps found mounted as volumes"
+    fi
+
+    if [[ ${#unique_env_cms[@]} -gt 0 ]]; then
+        print_two_column_table "ConfigMaps used in environment variables" "CONTAINER" "CONFIGMAP" "${unique_env_cms[@]}"
+    else
+        log_info "No ConfigMaps found in environment variables"
+    fi
+}
+
+# Run main function
+main "$@"

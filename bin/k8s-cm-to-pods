@@ -67,16 +67,25 @@ main() {
     # Find pods using the ConfigMap as a volume
     log_debug "Checking for ConfigMap usage as a volume..."
     mapfile -t pods_using_volume < <(kubectl get pods "$namespace_flag" -o json | jq -r \
-        '.items[] | select(.spec.volumes[]?.configMap.name? == "'"$configmap_name"'") | .metadata.name')
+        '.items[] | select(.spec.volumes[]?.configMap.name? == "'"$configmap_name"'") | .metadata.namespace + "/" + .metadata.name' | sort)
 
     # Find pods using the ConfigMap as an environment variable
     log_debug "Checking for ConfigMap usage as an environment variable..."
     mapfile -t pods_using_env < <(kubectl get pods "$namespace_flag" -o json | jq -r \
-        '.items[] | select(.spec.containers[].env[]?.valueFrom.configMapKeyRef.name? == "'"$configmap_name"'") | .metadata.name')
+        '.items[] | select(.spec.containers[].env[]?.valueFrom.configMapKeyRef.name? == "'"$configmap_name"'") | .metadata.namespace + "/" + .metadata.name' | sort)
 
     # Display results in a prettified format
-    print_two_column_table "Pods using '$configmap_name' as a Volume" "NAMESPACE" "POD NAME" "${pods_using_volume[@]}"
-    print_two_column_table "Pods using '$configmap_name' as an Environment Variable" "NAMESPACE" "POD NAME" "${pods_using_env[@]}"
+    if [[ ${#pods_using_volume[@]} -gt 0 ]]; then
+        print_two_column_table "Pods using '$configmap_name' as a Volume" "NAMESPACE" "POD NAME" "${pods_using_volume[@]}"
+    else
+        log_info "No pods found using '$configmap_name' as a Volume"
+    fi
+
+    if [[ ${#pods_using_env[@]} -gt 0 ]]; then
+        print_two_column_table "Pods using '$configmap_name' as an Environment Variable" "NAMESPACE" "POD NAME" "${pods_using_env[@]}"
+    else
+        log_info "No pods found using '$configmap_name' as an Environment Variable"
+    fi
 }
 
 # Run main function

@@ -27,11 +27,11 @@ print_two_column_table() {
 
     log_info "$title:"
 
-    # Find maximum width for each column
-    local max_col1_length=${#col1_header} # Minimum width (length of first header)
-    local max_col2_length=${#col2_header} # Minimum width (length of second header)
-
+    # Determine maximum widths for each column (start with header lengths)
+    local max_col1_length=${#col1_header}
+    local max_col2_length=${#col2_header}
     local col1 col2
+
     for item in "${items[@]}"; do
         col1=$(echo "$item" | cut -d'/' -f1)
         col2=$(echo "$item" | cut -d'/' -f2)
@@ -39,11 +39,21 @@ print_two_column_table() {
         [[ ${#col2} -gt $max_col2_length ]] && max_col2_length=${#col2}
     done
 
+    # Calculate the total width for the horizontal separator (columns plus " | " separator)
+    local total_width=$((max_col1_length + max_col2_length + 3))
     local line
-    line=$(printf '%*s' "$((max_col1_length + max_col2_length + 3))" '' | tr ' ' '-')
+    line=$(printf '%*s' "$total_width" '' | tr ' ' '-')
 
-    # Fix printf format string usage
-    printf '%-*s | %-*s\n' "$max_col1_length" "$col1_header" "$max_col2_length" "$col2_header"
+    # Print the table: separator, header, separator, rows, and final separator.
+    echo "$line"
+    printf "%-*s | %-*s\n" "$max_col1_length" "$col1_header" "$max_col2_length" "$col2_header"
+    echo "$line"
+    for item in "${items[@]}"; do
+        col1=$(echo "$item" | cut -d'/' -f1)
+        col2=$(echo "$item" | cut -d'/' -f2)
+        printf "%-*s | %-*s\n" "$max_col1_length" "$col1" "$max_col2_length" "$col2"
+    done
+    echo "$line"
 }
 
 # Print a multi-column table with dynamic column widths
