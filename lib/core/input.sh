@@ -82,26 +82,72 @@ confirm() {
                     return 1
                 fi
                 ;;
-            *) echo "Please answer yes or no." ;;
+            *) log_error "Please answer yes or no." ;;
         esac
     done
 }
 
-# Prompt for Input with Default
-prompt_with_default() {
-    local prompt="$1"
+# Prompt for user input with optional default value and validation.
+#
+# Arguments:
+#   message           The prompt message to display to the user
+#   default           Optional default value if user enters nothing
+#   validation_regex  Optional regex pattern to validate input
+#
+# Output:
+#   Prints the validated user input or default value to stdout
+#
+# Returns:
+#   0 if input was successfully obtained and validated
+#   1 if validation fails (user will be re-prompted)
+#
+# Examples:
+#   prompt "Enter name"                    # Basic prompt
+#   prompt "Enter age" "" "^[0-9]+$"       # With validation
+#   prompt "Enter name" "John"             # With default
+#   prompt "Enter age" "25" "^[0-9]+$"     # With default and validation
+prompt() {
+    local message="$1"
     local default="$2"
+    local validation_regex="${3:-}"
     local input
 
+    # If a default value is provided, append it to the prompt message.
     if [[ -n "$default" ]]; then
-        prompt="${prompt} [$default]"
+        message="${message} [$default]"
     fi
 
-    read -r -p "$prompt: " input
+    while true; do
+        printf "%s: " "$message"
+        read -r input
 
-    if [[ -z "$input" ]]; then
-        echo "$default"
-    else
-        echo "$input"
-    fi
+        # If no input is provided...
+        if [[ -z "$input" ]]; then
+            if [[ -n "$default" ]]; then
+                echo "$default"
+                return 0
+            elif [[ -n "$validation_regex" ]]; then
+                log_error "Input cannot be empty"
+                continue
+            else
+                echo ""
+                return 0
+            fi
+        fi
+
+        # If a validation regex is provided, ensure input matches.
+        if [[ -n "$validation_regex" ]]; then
+            if [[ "$input" =~ $validation_regex ]]; then
+                echo "$input"
+                return 0
+            else
+                log_error "Invalid input. Must match pattern: $validation_regex"
+                continue
+            fi
+        else
+            # No validation required, return the input.
+            echo "$input"
+            return 0
+        fi
+    done
 }

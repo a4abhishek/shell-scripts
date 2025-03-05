@@ -128,7 +128,25 @@ reinit_terminal_capabilities() {
 # Initialize terminal capabilities
 _detect_terminal_capabilities
 
-# Generic logging function.  Takes ALL formatting parameters.
+# Generic logging function that formats and outputs log messages with customizable formatting.
+#
+# Arguments:
+#   prefix            Symbol or text to prefix each log line with
+#   label             Label for the log level (e.g. "INFO", "ERROR")
+#   timestamp_format  Optional strftime format string for timestamp. If empty, no timestamp is added
+#   message           The actual log message to output
+#   output_fd         File descriptor to write to (default: 1 for stdout)
+#   color_code        Optional ANSI color code to colorize the message
+#   color_reset       Optional ANSI code to reset colors (defaults to $_COLOR_RESET if color_code set)
+#
+# Output:
+#   Writes formatted log message to specified file descriptor
+#
+# Returns:
+#   None
+#
+# Example:
+#   log "📌" "INFO" "%Y-%m-%d %H:%M:%S" "Starting process" 1 "\033[1;32m"
 log() {
     local prefix="${1:-}"
     local label="${2:-}"

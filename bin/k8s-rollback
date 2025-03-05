@@ -8,6 +8,18 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/core.sh"
 
+# Preflight check for stdout being a terminal
+check_stdout_terminal() {
+    if ! [[ -t 1 ]]; then
+        log_error "stdout must be connected to a terminal"
+        return 1
+    fi
+    return 0
+}
+
+# Register preflight check
+register_preflight check_stdout_terminal
+
 # Preflight check for kubectl
 check_kubectl() {
     if ! command -v kubectl &> /dev/null; then
@@ -22,12 +34,11 @@ register_preflight check_kubectl
 
 # Usage function
 usage() {
-    log_error "Usage: $(basename "$0") [deployment-name]"
+    log_info "Usage: $(basename "$0") [deployment-name]"
     log_info "  Interactive deployment rollback utility"
     log_info "  If deployment name is provided, rolls back directly"
     log_info "  Otherwise, enters interactive mode"
     log_info "  Example: $(basename "$0") my-deployment"
-    exit 1
 }
 
 # Detect Namespace of a Given Deployment
@@ -84,8 +95,7 @@ rollback_deployment() {
 # Interactive mode
 interactive_mode() {
     while true; do
-        echo -en "\n📌 Enter deployment name (or type 'exit' to quit): "
-        read -r deployment_name
+        deployment_name=$(prompt "\n📌 Enter deployment name (or type 'exit' to quit): ")
 
         if [[ "$deployment_name" == "exit" ]]; then
             log_info "Exiting script."
@@ -102,8 +112,9 @@ interactive_mode() {
 }
 
 main() {
-    if [[ $# -eq 1 && "$1" == "-h" ]]; then
+    if [[ "$1" == "-h" ]]; then
         usage
+        exit 0
     fi
 
     if [[ $# -eq 1 ]]; then

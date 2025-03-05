@@ -164,9 +164,66 @@ Use the logging library for consistent, colored output:
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 . "$SCRIPT_DIR/lib/logging.sh"
 
+# Logging functions handle terminal detection and color support automatically
 log_info "Starting process..."
 log_error "An error occurred!"
 log_fatal "Critical failure, exiting!"  # This exits the script
+
+# Logging functions write to appropriate file descriptors:
+# - log_debug, log_info, log_success -> LOG_NONERROR_FD (default: stdout)
+# - log_warning, log_error, log_fatal -> LOG_ERROR_FD (default: stderr)
+
+# For returning values from functions, use echo (not logging functions)
+get_user_count() {
+    # Do NOT use log_info for returning values
+    # log_info "5"  # Wrong! This might not show in pipelines/redirections
+    
+    echo "5"  # Correct! This always returns the value
+    
+    # Use log_* only for actual logging
+    log_info "Successfully counted users"
+}
+
+# Example of proper output vs logging
+user_count=$(get_user_count)  # Captures the echoed value
+log_info "Found $user_count users"  # Logs the information
+```
+
+The logging library provides several safety features:
+- Automatic terminal capability detection (colors, unicode)
+- Proper handling of pipelines and redirections
+- Separation of error (stderr) and non-error (stdout) logs
+- Configurable log levels with LOG_LEVEL environment variable
+- Color support that can be forced (FORCE_COLOR) or disabled (NO_COLOR)
+
+**Best Practices:**
+1. Use `log_*` functions ONLY for logging information
+2. Use `echo` or `printf` for returning values from functions
+3. Never capture output from `log_*` functions in variables or pipelines
+4. Set appropriate LOG_LEVEL for different environments (e.g., LOG_LEVEL=error in production)
+
+**Advanced Logging:**
+The library also provides a generic `log` function for custom formatting:
+
+```bash
+# Generic log function parameters:
+# log <prefix> <label> <timestamp_format> <message> <output_fd> <color_code> <color_reset>
+
+# Examples of custom logging:
+# Custom prefix and label with timestamp
+log "🔹" "DEPLOY" "%H:%M:%S" "Deploying to production" 1 "\033[1;35m"
+
+# Log without timestamp (empty timestamp format)
+log ">>" "STEP" "" "Running migrations" 1 "\033[1;36m"
+
+# Log to stderr with custom color
+log "⚡" "PERF" "%Y-%m-%d" "High CPU usage detected" 2 "\033[1;33m"
+
+# Simple log with just a message (other params empty)
+log "" "" "" "Processing complete" 1 ""
+
+# The log_* functions (log_info, log_error, etc.) are built on top of this generic log function,
+# providing convenient defaults and standard formatting
 ```
 
 ### Preflight Checks
@@ -223,8 +280,17 @@ if confirm "Do you want to proceed?" "y"; then
     echo "Proceeding..."
 fi
 
+# Basic prompt
+name=$(prompt "Enter your name")
+
 # Prompt with a default value
-name=$(prompt_with_default "Enter your name" "guest")
+username=$(prompt "Enter username" "guest")
+
+# Prompt with validation (numbers only)
+age=$(prompt "Enter your age" "" "^[0-9]+$")
+
+# Prompt with default and validation (valid IP address)
+ip=$(prompt "Enter server IP" "192.168.1.1" "^([0-9]{1,3}\.){3}[0-9]{1,3}$")
 
 # Multi-line input
 content=$(read_multiline_input)

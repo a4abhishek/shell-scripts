@@ -16,10 +16,10 @@ _LIB_CORE_LOADED=true
 # Check if realpath is installed
 check_realpath() {
     if ! command -v realpath &> /dev/null; then
-        echo -e "\033[1;31m❌ [ERROR] 'realpath' is not installed.\033[0m"
-        echo "👉 Please install 'realpath' before running this script."
+        log_error "'realpath' is not installed."
+        log "👉" "" "" "Please install 'realpath' before running this script." "" "$_COLOR_INFO"
         if [[ "$(uname -s)" == "Darwin" ]]; then
-            echo "🔹 macOS users can install it with: 'brew install coreutils'"
+            log "🔹" "" "" "macOS users can install it with: 'brew install coreutils'" "" "$_COLOR_INFO"
         fi
         return 1
     fi
