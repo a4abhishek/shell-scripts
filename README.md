@@ -45,7 +45,7 @@ You can install the Shell Scripts Library in several ways:
 To install a specific tagged release, run:
 
 ```bash
-curl -o- https://raw.githubusercontent.com/a4abhishek/shell-scripts/v0.1.0/install.sh | bash -s -- INSTALL_VERSION=v0.1.0
+curl -o- https://raw.githubusercontent.com/a4abhishek/shell-scripts/v0.2.0/install.sh | bash -s -- INSTALL_VERSION=v0.2.0
 ```
 
 This command will:
