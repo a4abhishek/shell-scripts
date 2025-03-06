@@ -22,7 +22,7 @@ register_preflight() {
 
 # Internal function to run all registered preflight checks
 _run_preflight_checks() {
-    log_info "Running preflight checks..."
+    log_debug "Running preflight checks..."
 
     local failed_checks=0
 
@@ -42,7 +42,7 @@ _run_preflight_checks() {
         log_fatal "$failed_checks preflight checks failed. Exiting."
     fi
 
-    log_info "All preflight checks passed!"
+    log_debug "All preflight checks passed!"
 }
 
 # Ensure preflight checks run at the start of the script

@@ -101,7 +101,7 @@ EOF
     
     # Check output
     [[ "$output" == *"cleanup ran"* ]]
-    [[ "$output" == *"Script completed gracefully"* ]]
+    [[ "$output" == *"Exiting gracefully"* ]]
     [[ "$output" != *"This should not print"* ]]
     [ "$status" -eq 0 ]
 }
@@ -125,6 +125,6 @@ EOF
     
     # Check output
     [[ "$output" == *"cleanup ran"* ]]
-    [[ "$output" == *"Script completed gracefully"* ]]
+    [[ "$output" == *"Exiting gracefully"* ]]
     [ "$status" -eq 0 ]
-} 
+}

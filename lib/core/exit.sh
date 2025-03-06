@@ -45,7 +45,7 @@ _default_cleanup() {
     fi
 
     _run_custom_cleanups
-    log "⚠️" "EXIT" "" "Exiting gracefully." "$LOG_NONERROR_FD" "\033[1;33m"
+    log "🏁" "EXIT" "" "Exiting gracefully." "$LOG_NONERROR_FD" "\033[1;33m"
     exit 0
 }
 
