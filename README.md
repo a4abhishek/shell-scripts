@@ -195,12 +195,54 @@ The logging library provides several safety features:
 - Separation of error (stderr) and non-error (stdout) logs
 - Configurable log levels with LOG_LEVEL environment variable
 - Color support that can be forced (FORCE_COLOR) or disabled (NO_COLOR)
+- Complete log suppression with NOLOG environment variable
+- Forced logging with FORCE_LOG (overrides NOLOG and terminal checks)
 
 **Best Practices:**
 1. Use `log_*` functions ONLY for logging information
 2. Use `echo` or `printf` for returning values from functions
 3. Never capture output from `log_*` functions in variables or pipelines
 4. Set appropriate LOG_LEVEL for different environments (e.g., LOG_LEVEL=error in production)
+
+**Environment Variables:**
+```bash
+# Set logging level (from lowest to highest priority)
+# Available levels: debug=0, info=1, success=2, warning=3, error=4, fatal=5
+export LOG_LEVEL=info    # Default: Show info and above
+export LOG_LEVEL=debug   # Most verbose: Show all logs
+export LOG_LEVEL=warning # Less verbose: Show only warning, error, and fatal
+export LOG_LEVEL=error   # Show only error and fatal
+export LOG_LEVEL=fatal   # Most quiet: Show only fatal errors
+
+# Suppress all logging output
+export NOLOG=1
+
+# Force logging regardless of NOLOG or terminal settings (still honors LOG_LEVEL)
+export FORCE_LOG=1
+
+# Combine with LOG_LEVEL for fine-grained control
+export FORCE_LOG=1
+export LOG_LEVEL=warning  # Only show warning and above, but force them even if not terminal
+
+# FORCE_LOG takes precedence over NOLOG
+export NOLOG=1
+export FORCE_LOG=1  # Logs will still be shown because FORCE_LOG overrides NOLOG
+
+# Redirect different types of logs
+export LOG_NONERROR_FD=3  # Redirect non-error logs (debug, info, success)
+export LOG_ERROR_FD=4     # Redirect error logs (warning, error, fatal)
+3>info.log 4>error.log   # Example: Split logs into separate files
+```
+
+**Log Level Priority:**
+1. `debug` (0): Detailed debugging information
+2. `info` (1): General information about script progress
+3. `success` (2): Successful completion of tasks
+4. `warning` (3): Potential issues that don't stop execution
+5. `error` (4): Error conditions that may stop execution
+6. `fatal` (5): Critical errors that will stop execution
+
+Each level includes all higher priority levels. For example, `LOG_LEVEL=warning` will show warning, error, and fatal messages, but suppress debug, info, and success messages.
 
 **Advanced Logging:**
 The library also provides a generic `log` function for custom formatting:

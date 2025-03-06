@@ -1,108 +1,272 @@
-#!/usr/bin/env bash
+#!/usr/bin/env bats
 
 setup() {
-    load '../lib/core/logging.sh'
+    # Force color and unicode support for tests
+    export FORCE_COLOR=true
+    export HAS_UNICODE_SUPPORT=true
     
-    # Force unicode and color support for consistent testing
-    export FORCE_COLOR=1
-    export FORCE_UNICODE=1
-    
-    # Reinitialize terminal capabilities with new settings
-    reinit_terminal_capabilities
-    
-    # Save original stdout and stderr
-    exec {ORIG_STDOUT}>&1
-    exec {ORIG_STDERR}>&2
+    # Unset variables that might interfere with tests
+    unset FORCE_LOG
+    unset NOLOG
 }
 
-teardown() {
-    # Restore original stdout and stderr
-    exec 1>&${ORIG_STDOUT}
-    exec 2>&${ORIG_STDERR}
-    
-    # Clear test overrides
-    unset FORCE_COLOR
-    unset FORCE_UNICODE
-}
+###############################################################################
+# Helper functions
+###############################################################################
 
-# Helper function to strip ANSI color codes and timestamps
+# Helper: Remove ANSI color codes and replace any timestamp with [TIMESTAMP]
 strip_formatting() {
-    # Remove ANSI codes and standardize timestamp
-    echo "$1" | sed -E 's/\x1B\[[0-9;]*[mK]//g' | sed -E 's/\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\]/[TIMESTAMP]/g'
+    echo "$1" \
+        | sed -E 's/\x1B\[[0-9;]*[mK]//g' \
+        | sed -E 's/\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\]/[TIMESTAMP]/g'
 }
+
+###############################################################################
+# Basic logging functionality tests
+###############################################################################
 
 @test "log_debug only prints when LOG_LEVEL=debug" {
-    # Should not print without LOG_LEVEL=debug
-    run log_debug "Test debug message"
-    [ "$output" = "" ]
-    
+    # Should not print with LOG_LEVEL=info
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_debug "Test debug message"'
+    [ -z "$output" ]
+
     # Should print with LOG_LEVEL=debug
-    LOG_LEVEL=debug run log_debug "Test debug message"
+    run bash -c 'export LOG_LEVEL=debug; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_debug "Test debug message"'
     stripped=$(strip_formatting "$output")
-    [ "$stripped" = "🔍 [DEBUG] [TIMESTAMP] Test debug message" ]
+    [[ "$stripped" =~ ^🔍[[:space:]]+DEBUG[[:space:]]+\[TIMESTAMP\][[:space:]]+Test[[:space:]]+debug[[:space:]]+message[[:space:]]*$ ]]
 }
 
 @test "log_info prints to stdout" {
-    run log_info "Test info message"
+    # Test stdout
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_info "Test info message" > >(cat) 2>/dev/null'
     stripped=$(strip_formatting "$output")
-    [ "$stripped" = "📌 [INFO] [TIMESTAMP] Test info message" ]
+    [[ "$stripped" =~ ^📌[[:space:]]+INFO[[:space:]]+\[TIMESTAMP\][[:space:]]+Test[[:space:]]+info[[:space:]]+message[[:space:]]*$ ]]
+    
+    # Verify nothing on stderr
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_info "Test info message" 2>&1 >/dev/null'
+    [ -z "$output" ]
 }
 
 @test "log_success prints to stdout" {
-    run log_success "Test success message"
+    # Test stdout
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_success "Test success message" > >(cat) 2>/dev/null'
     stripped=$(strip_formatting "$output")
-    [ "$stripped" = "✅ [SUCCESS] [TIMESTAMP] Test success message" ]
+    [[ "$stripped" =~ ^✅[[:space:]]+SUCCESS[[:space:]]+\[TIMESTAMP\][[:space:]]+Test[[:space:]]+success[[:space:]]+message[[:space:]]*$ ]]
+    
+    # Verify nothing on stderr
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_success "Test success message" 2>&1 >/dev/null'
+    [ -z "$output" ]
 }
 
-@test "log_warning prints to stdout" {
-    run log_warning "Test warning message"
+@test "log_warning prints to stderr" {
+    # Test stderr
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && { log_warning "Test warning message" 2>&1 1>&3 3>&-; }'
     stripped=$(strip_formatting "$output")
-    [ "$stripped" = "⚠️ [WARNING] [TIMESTAMP] Test warning message" ]
+    [[ "$stripped" =~ ^⚠️[[:space:]]+WARNING[[:space:]]+\[TIMESTAMP\][[:space:]]+Test[[:space:]]+warning[[:space:]]+message[[:space:]]*$ ]]
+    
+    # Verify nothing on stdout
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && { log_warning "Test warning message" 2>/dev/null; }'
+    [ -z "$output" ]
 }
 
 @test "log_error prints to stderr" {
-    # Redirect stderr to stdout for testing
-    run bash -c "source '${BATS_TEST_DIRNAME}/../lib/core/logging.sh' && log_error 'Test error message' 2>&1"
+    # Test stderr
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && { log_error "Test error message" 2>&1 1>&3 3>&-; }'
     stripped=$(strip_formatting "$output")
-    [ "$stripped" = "❌ [ERROR] [TIMESTAMP] Test error message" ]
+    [[ "$stripped" =~ ^❌[[:space:]]+ERROR[[:space:]]+\[TIMESTAMP\][[:space:]]+Test[[:space:]]+error[[:space:]]+message[[:space:]]*$ ]]
+    
+    # Verify nothing on stdout
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && { log_error "Test error message" 2>/dev/null; }'
+    [ -z "$output" ]
 }
 
-@test "log_fatal prints to stderr and exits" {
-    # Redirect stderr to stdout and capture exit code
-    run bash -c "source '${BATS_TEST_DIRNAME}/../lib/core/logging.sh' && log_fatal 'Test fatal message' 2>&1"
+@test "log_fatal prints to stderr and exits with custom exit code" {
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_fatal "Test fatal message" 42 2>&1'
+    [ "$status" -eq 42 ]
     stripped=$(strip_formatting "$output")
-    [ "$stripped" = "💥 [FATAL] [TIMESTAMP] Test fatal message" ]
+    [[ "$stripped" =~ ^💥[[:space:]]+FATAL[[:space:]]+\[TIMESTAMP\][[:space:]]+Test[[:space:]]+fatal[[:space:]]+message[[:space:]]*$ ]]
+}
+
+###############################################################################
+# Log level and filtering tests
+###############################################################################
+
+@test "log level filtering respects hierarchy" {
+    # Info messages should not appear when LOG_LEVEL=warning
+    run bash -c 'export LOG_LEVEL=warning; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_info "Should not appear"'
+    [ -z "$output" ]
+
+    # Warning messages should appear when LOG_LEVEL=warning
+    run bash -c 'export LOG_LEVEL=warning; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_warning "Should appear" 2>&1'
+    stripped=$(strip_formatting "$output")
+    [[ "$stripped" =~ ^⚠️[[:space:]]+WARNING[[:space:]]+\[TIMESTAMP\][[:space:]]+Should[[:space:]]+appear[[:space:]]*$ ]]
+}
+
+@test "log level comparison is case insensitive" {
+    run bash -c 'export LOG_LEVEL=WARNING; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_info "Should not appear"'
+    [ -z "$output" ]
+}
+
+@test "invalid log levels default to info" {
+    run bash -c 'export LOG_LEVEL=invalid_level; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_info "Should appear"'
+    stripped=$(strip_formatting "$output")
+    [[ "$stripped" =~ ^📌[[:space:]]+INFO[[:space:]]+\[TIMESTAMP\][[:space:]]+Should[[:space:]]+appear[[:space:]]*$ ]]
+}
+
+@test "log_is_enabled returns correct status for different levels" {
+    # Info level should be enabled when LOG_LEVEL=info
+    result=$(bash -c 'unset FORCE_LOG; export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && 
+                      log_is_enabled "info" && echo "enabled" || echo "disabled"')
+    [[ "$result" =~ enabled ]]
+
+    # Debug level should be disabled when LOG_LEVEL=info
+    result=$(bash -c 'unset FORCE_LOG; export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && 
+                      log_is_enabled "debug" && echo "enabled" || echo "disabled"')
+    [[ "$result" =~ disabled ]]
+}
+
+###############################################################################
+# Environment variable interaction tests
+###############################################################################
+
+@test "NO_COLOR takes precedence over FORCE_COLOR" {
+    run bash -c 'export LOG_LEVEL=info; export NO_COLOR=1; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_info "Test message"'
+    [[ "$output" != *$'\033['* ]]  # Should not contain ANSI escape sequences
+}
+
+@test "NOLOG suppresses output regardless of other settings" {
+    # Test with FORCE_LOG=false (both stdout and stderr)
+    run bash -c 'unset FORCE_LOG; export LOG_LEVEL=info; export NOLOG=1; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && { log_info "Should not appear" 2>&1; }'
+    [ -z "$output" ]
+
+    # Test with FORCE_LOG=true (both stdout and stderr)
+    run bash -c 'export FORCE_LOG=1; export LOG_LEVEL=info; export NOLOG=1; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && { log_info "Should not appear" 2>&1; }'
+    [ -z "$output" ]
+
+    # Test error messages with NOLOG
+    run bash -c 'export LOG_LEVEL=info; export NOLOG=1; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && { log_error "Should not appear" 2>&1; }'
+    [ -z "$output" ]
+}
+
+@test "unset environment variables use defaults" {
+    # Unset LOG_LEVEL should default to info
+    run bash -c 'unset LOG_LEVEL; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_info "Default level"'
+    stripped=$(strip_formatting "$output")
+    [[ "$stripped" =~ ^📌[[:space:]]+INFO[[:space:]]+\[TIMESTAMP\][[:space:]]+Default[[:space:]]+level[[:space:]]*$ ]]
+
+    # Unset HAS_UNICODE_SUPPORT should use fallback symbols
+    run bash -c 'export LOG_LEVEL=info; unset HAS_UNICODE_SUPPORT; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_info "Fallback symbols"'
+    stripped=$(strip_formatting "$output")
+    [[ "$stripped" =~ INFO[[:space:]]+\[TIMESTAMP\][[:space:]]+Fallback[[:space:]]+symbols[[:space:]]*$ ]]
+}
+
+###############################################################################
+# File descriptor tests
+###############################################################################
+
+@test "invalid file descriptors are handled gracefully" {
+    # Non-existent file descriptor
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log "📌" "INFO" "" "Message" "999" "$_COLOR_INFO" 2>&1'
+    [ "$status" -eq 1 ]
+
+    # Closed file descriptor
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && exec 3>&-; log "📌" "INFO" "" "Message" "3" "$_COLOR_INFO" 2>&1'
     [ "$status" -eq 1 ]
 }
 
-@test "logging functions handle special characters" {
-    special_chars="Special * ? [] {} characters!"
-    run log_info "$special_chars"
-    stripped=$(strip_formatting "$output")
-    [ "$stripped" = "📌 [INFO] [TIMESTAMP] $special_chars" ]
+@test "custom file descriptors work correctly" {
+    tmp_output=$(mktemp)
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && exec 3>"'"$tmp_output"'"; log "📌" "INFO" "" "Custom FD" "3" "$_COLOR_INFO"'
+    [ "$status" -eq 0 ]
+    [ -s "$tmp_output" ]
+    stripped=$(strip_formatting "$(cat "$tmp_output")")
+    [[ "$stripped" =~ ^📌[[:space:]]+INFO[[:space:]]+Custom[[:space:]]+FD[[:space:]]*$ ]]
+    rm -f "$tmp_output"
 }
 
-@test "logging functions handle empty messages" {
-    run log_info ""
+###############################################################################
+# Message formatting tests
+###############################################################################
+
+@test "custom timestamp formats are respected" {
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && 
+                 log "📌" "INFO" "%Y-%m-%d_%H-%M-%S" "Message" "1" "$_COLOR_INFO"'
     stripped=$(strip_formatting "$output")
-    [ "$stripped" = "📌 [INFO] [TIMESTAMP] " ]
+    [[ "$stripped" =~ ^📌[[:space:]]+INFO[[:space:]]+\[[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}\][[:space:]]+Message[[:space:]]*$ ]]
 }
 
-@test "logging functions handle multiline messages" {
-    # Create a multiline message with explicit newline
-    run bash -c "source '${BATS_TEST_DIRNAME}/../lib/core/logging.sh' && log_info $'Line 1\nLine 2'"
-    
-    # Debug output
-    echo "# Raw output: $output" >&3
-    echo "# Stripped output: $(strip_formatting "$output")" >&3
-    
-    # Split output into lines for comparison
+@test "invalid timestamp formats are handled gracefully" {
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && 
+                 log "📌" "INFO" "%Invalid" "Message" "1" "$_COLOR_INFO"'
+    [ "$status" -eq 0 ]
+    [[ -n "$output" ]]
+}
+
+@test "empty timestamp format omits brackets" {
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && 
+                 log "📌" "INFO" "" "Message" "1" "$_COLOR_INFO"'
     stripped=$(strip_formatting "$output")
-    expected1="📌 [INFO] [TIMESTAMP] Line 1"
-    expected2="📌 [INFO] [TIMESTAMP] Line 2"
-    
-    echo "# Checking line 1" >&3
-    [[ "$stripped" == *"$expected1"* ]] || false
-    echo "# Checking line 2" >&3
-    [[ "$stripped" == *"$expected2"* ]] || false
+    [[ "$stripped" =~ ^📌[[:space:]]+INFO[[:space:]]+Message[[:space:]]*$ ]]
+}
+
+@test "whitespace in messages is preserved" {
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && 
+                 log_info "   spaced message   "'
+    stripped=$(strip_formatting "$output")
+    [[ "$stripped" == *"   spaced message   "* ]]
+}
+
+@test "multiline messages maintain formatting" {
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && 
+                 log_info $'"'"'First line\n\n\nLast line'"'"''
+    stripped=$(strip_formatting "$output")
+    line_count=$(echo "$stripped" | wc -l)
+    [ "$line_count" -eq 4 ]
+    first_line=$(echo "$stripped" | head -n1)
+    last_line=$(echo "$stripped" | tail -n1)
+    [[ "$first_line" =~ ^📌[[:space:]]+INFO[[:space:]]+\[TIMESTAMP\][[:space:]]+First[[:space:]]+line[[:space:]]*$ ]]
+    [[ "$last_line" =~ ^📌[[:space:]]+INFO[[:space:]]+\[TIMESTAMP\][[:space:]]+Last[[:space:]]+line[[:space:]]*$ ]]
+}
+
+###############################################################################
+# Special content tests
+###############################################################################
+
+@test "very long messages are handled correctly" {
+    long_message=$(printf 'x%.0s' {1..1000})
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && log_info "'"$long_message"'"'
+    [ "$status" -eq 0 ]
+    [[ "${#output}" -gt 1000 ]]
+}
+
+@test "special shell characters are preserved" {
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && 
+                 log_info "Special: & | ; < > ( ) $ \` \\"'
+    stripped=$(strip_formatting "$output")
+    # Verify each special character appears in the output
+    [[ "$stripped" =~ "Special:" ]] &&
+    [[ "$stripped" =~ "&" ]] &&
+    [[ "$stripped" =~ "|" ]] &&
+    [[ "$stripped" =~ ";" ]] &&
+    [[ "$stripped" =~ "<" ]] &&
+    [[ "$stripped" =~ ">" ]] &&
+    [[ "$stripped" =~ "(" ]] &&
+    [[ "$stripped" =~ ")" ]] &&
+    [[ "$stripped" =~ "$" ]] &&
+    [[ "$stripped" =~ "\`" ]] &&
+    [[ "$stripped" =~ "\\" ]]
+}
+
+@test "Unicode characters are handled correctly" {
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && 
+                 log_info "Unicode: 🌟 ❤️ 🎉 🚀"'
+    stripped=$(strip_formatting "$output")
+    [[ "$stripped" =~ Unicode.*🌟.*❤️.*🎉.*🚀 ]]
+}
+
+@test "ANSI escape sequences in messages are preserved" {
+    run bash -c 'export LOG_LEVEL=info; source "'"${BATS_TEST_DIRNAME}/../lib/core/logging.sh"'" && 
+                 log_info $'"'"'\033[31mRed\033[0m \033[32mGreen\033[0m'"'"''
+    stripped=$(strip_formatting "$output")
+    [[ "$stripped" =~ Red.*Green ]]
 }

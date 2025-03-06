@@ -16,22 +16,24 @@ CORE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 read_multiline_input() {
     local input_file
     input_file=$(mktemp)
-    # Use single quotes to prevent expansion
+
     trap 'rm -f '"$input_file"'' EXIT
 
     log_info "Enter your input (Press Ctrl+D when done):"
     cat > "$input_file"
 
-    local input
-    input=$(< "$input_file")
-    echo -e "$input"
+    # Read and output the file line by line to handle large inputs
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        echo "$line"
+    done < "$input_file"
 }
 
 # Open Editor for Input
 get_input_with_editor() {
     local temp_file
     temp_file="$(mktemp)"
-    trap 'rm -f "$temp_file"' EXIT
+
+    trap 'rm -f '"$temp_file"'' EXIT
 
     # Populate with initial content (if provided)
     local initial_content
@@ -118,8 +120,7 @@ prompt() {
     fi
 
     while true; do
-        printf "%s: " "$message"
-        read -r input
+        read -r -p "$message: " input
 
         # If no input is provided...
         if [[ -z "$input" ]]; then

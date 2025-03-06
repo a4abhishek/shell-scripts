@@ -4,7 +4,6 @@
 if [[ -n "${_LIB_FEATURES_LOADED:-}" ]]; then return; fi
 _LIB_FEATURES_LOADED=true
 
-# Ensure script stops on errors
 set -euo pipefail
 
 # Detect terminal capabilities and set environment variables
@@ -27,11 +26,7 @@ _detect_terminal_features() {
 
     # Architecture detection
     case "$(uname -m)" in
-        x86_64)
-            export ARCH_NAME="x86_64"
-            export ARCH_FAMILY="x86"
-            ;;
-        amd64)
+        x86_64 | amd64)
             export ARCH_NAME="x86_64"
             export ARCH_FAMILY="x86"
             ;;

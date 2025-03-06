@@ -81,7 +81,11 @@ print_table() {
         return
     fi
 
-    log_info "$title:"
+    if log_is_enabled "info"; then
+        log_info "$title:"
+    else
+        echo "$title:"
+    fi
 
     # Use mapfile to avoid word-splitting issues (SC2207).
     mapfile -t max_lengths < <(calculate_max_widths "$delimiter" "$headers_name" "$items_name")

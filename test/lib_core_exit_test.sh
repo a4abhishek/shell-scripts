@@ -67,6 +67,10 @@ EOF
     # Create test script that doesn't inherit BATS environment
     cat > "$TEST_DIR/test.sh" << 'EOF'
 #!/usr/bin/env bash
+export FORCE_COLOR=true
+export HAS_UNICODE_SUPPORT=true
+unset NOLOG
+unset FORCE_LOG
 unset BATS_TEST_FILENAME
 source "${BATS_TEST_DIRNAME}/../lib/core/exit.sh"
 register_cleanup "nonexistent_function"
@@ -86,6 +90,10 @@ EOF
     # Create test script that doesn't inherit BATS environment
     cat > "$TEST_DIR/test.sh" << 'EOF'
 #!/usr/bin/env bash
+export FORCE_COLOR=true
+export HAS_UNICODE_SUPPORT=true
+unset NOLOG
+unset FORCE_LOG
 unset BATS_TEST_FILENAME
 source "${BATS_TEST_DIRNAME}/../lib/core/exit.sh"
 
@@ -101,7 +109,7 @@ EOF
     
     # Check output
     [[ "$output" == *"cleanup ran"* ]]
-    [[ "$output" == *"Script completed gracefully"* ]]
+    [[ "$output" == *"Exiting gracefully"* ]]
     [[ "$output" != *"This should not print"* ]]
     [ "$status" -eq 0 ]
 }
@@ -110,6 +118,10 @@ EOF
     # Create test script that doesn't inherit BATS environment
     cat > "$TEST_DIR/test.sh" << 'EOF'
 #!/usr/bin/env bash
+export FORCE_COLOR=true
+export HAS_UNICODE_SUPPORT=true
+unset NOLOG
+unset FORCE_LOG
 unset BATS_TEST_FILENAME
 source "${BATS_TEST_DIRNAME}/../lib/core/exit.sh"
 
@@ -125,6 +137,6 @@ EOF
     
     # Check output
     [[ "$output" == *"cleanup ran"* ]]
-    [[ "$output" == *"Script completed gracefully"* ]]
+    [[ "$output" == *"Exiting gracefully"* ]]
     [ "$status" -eq 0 ]
-} 
+}
