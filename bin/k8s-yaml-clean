@@ -6,13 +6,18 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/core.sh"
 
-# Usage function
-usage() {
-    log_error "Usage: $(basename "$0") < input.yaml"
-    log_info "  Reads a Kubernetes YAML from STDIN, removes read-only fields, and prints a clean, colorful YAML."
-    log_info "  Example: cat deployment.yaml | $(basename "$0")"
-    exit 1
-}
+# Set script metadata
+set_script_info \
+    "Clean and format Kubernetes YAML by removing read-only fields" \
+    "k8s-yaml-clean [options] < input.yaml" \
+    "  # Clean and format a deployment YAML
+  cat deployment.yaml | k8s-yaml-clean
+
+  # Clean with color output
+  kubectl get deployment myapp -o yaml | k8s-yaml-clean"
+
+# Register flags
+register_flag "no-color" "bool" "Disable colored output" "n" "false"
 
 # Preflight check for required commands
 check_requirements() {
@@ -27,18 +32,30 @@ check_requirements() {
 }
 register_preflight check_requirements
 
-# Optionally use 'bat' for colorized output if available; fallback to cat if not.
-if command -v bat &> /dev/null; then
-    COLOR_CMD="bat --language yaml --paging=never"
-else
-    COLOR_CMD="yq"
-fi
+# Check if stdin is a pipe
+check_stdin_pipe() {
+    if [[ -t 0 ]]; then
+        log_error "No input provided. Please pipe YAML content to this script."
+        log_info "Example: cat deployment.yaml | $(basename "$0")"
+        return 1
+    fi
+    return 0
+}
+register_preflight check_stdin_pipe
 
 # Main processing function
 main() {
-    # If no input is piped, show usage.
-    if [ -t 0 ]; then
-        usage
+    # Parse flags
+    parse_flags "$@" || exit 1
+
+    # Get no-color flag value
+    local no_color
+    no_color=$(get_flag no-color)
+
+    # Determine output command based on flags and available tools
+    local COLOR_CMD="yq"
+    if [[ "$no_color" != "true" ]] && command -v bat &> /dev/null; then
+        COLOR_CMD="bat --language yaml --paging=never"
     fi
 
     # Read YAML from STDIN.

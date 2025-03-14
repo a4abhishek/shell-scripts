@@ -10,13 +10,21 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib" && pwd)"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/slack.sh"
 
-# Usage function
-usage() {
-    log_error "Usage: $(basename "$0") <command> [args...]"
-    log_info "  Executes the given command and sends a Slack notification upon completion."
-    log_info "  Example: notify ls -la"
-    exit 1
-}
+# Set script metadata
+set_script_info \
+    "Execute a command and send a Slack notification upon completion" \
+    "notify <command> [args...]" \
+    "  # Run a long-running command and get notified
+  notify sleep 60
+
+  # Run a command with multiple arguments
+  notify kubectl get pods -n kube-system
+
+  # Run a command with flags
+  notify make build --debug -j4"
+
+# Register required positional argument
+register_required_positional 1 "Command to execute with optional arguments"
 
 # Notify Me
 notify() {
@@ -31,15 +39,15 @@ notify() {
         start_time=$(($(date +%s) * 1000 + $(date +%N | cut -c1-3)))
     fi
 
-    # Capture the command and arguments
-    local cmd=("$@")
-    if [[ ${#cmd[@]} -eq 0 ]]; then
-        usage
-    fi
+    # Get command and arguments from positional args
+    local cmd=()
+    while IFS= read -r arg; do
+        cmd+=("$arg")
+    done < <(get_positional_args)
 
     # Execute the command
-    "${cmd[@]}"
-    local status_code=$?
+    "${cmd[@]}" || local status_code=$?
+    status_code=${status_code:-$?}
 
     # Record the end time
     if command -v gdate > /dev/null 2>&1; then
@@ -55,7 +63,7 @@ notify() {
 
     # Format duration dynamically
     local formatted_duration=""
-    if [ $duration -lt 1000 ]; then
+    if [ "$duration" -lt 1000 ]; then
         formatted_duration="${duration}ms"
     else
         local seconds=$((duration / 1000))
@@ -74,7 +82,7 @@ notify() {
 
     # Prepare the message for the webhook
     local message
-    if [ $status_code -eq 0 ]; then
+    if [ "$status_code" -eq 0 ]; then
         message="🟩 Your command \"${cmd[*]}\" is Successful!\nIt took ${formatted_duration} to finish."
     else
         message="🟥 Your command \"${cmd[*]}\" failed.\nTime taken: ${formatted_duration}."
@@ -84,15 +92,15 @@ notify() {
     send_slack_message "$message"
 
     # Return the original command's exit code
-    return $status_code
+    return "$status_code"
 }
 
 # Main function
 main() {
-    if [[ $# -eq 0 ]]; then
-        usage
-    fi
-    notify "$@"
+    # Parse flags
+    parse_flags "$@" || exit 1
+
+    notify
 }
 
 # Run main function

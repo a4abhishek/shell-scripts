@@ -30,38 +30,32 @@ check_jq() {
 register_preflight check_kubectl
 register_preflight check_jq
 
-# Usage function
-usage() {
-    log_error "Usage: $(basename "$0") [-n namespace] <configmap-name>"
-    log_info "  -n : (Optional) Specify a namespace. If omitted, searches in all namespaces."
-    exit 1
-}
+# Set script metadata
+set_script_info \
+    "Find pods using a specific ConfigMap" \
+    "k8s-cm-to-pods [options] <configmap-name>" \
+    "  k8s-cm-to-pods -n kube-system coredns-config"
+
+# Register flags
+register_flag "namespace" "string" "Namespace to search in (defaults to all namespaces)" "n"
+
+# Register required positional argument
+register_required_positional 1 "ConfigMap name to search for"
 
 main() {
-    # Default to querying all namespaces
+    # Parse flags
+    parse_flags "$@" || exit 1
+
+    # Get namespace flag value
+    local namespace
+    namespace=$(get_flag namespace)
     local namespace_flag="-A"
-    local configmap_name=""
+    [[ -n "$namespace" ]] && namespace_flag="-n $namespace"
 
-    # Parse arguments
-    while getopts "n:" opt; do
-        case "${opt}" in
-            n)
-                namespace_flag="-n ${OPTARG}"
-                ;;
-            *)
-                usage
-                ;;
-        esac
-    done
-    shift $((OPTIND - 1))
+    # Get ConfigMap name from positional args
+    local configmap_name
+    configmap_name=$(get_positional_args | head -n1)
 
-    # Ensure a ConfigMap name is provided
-    if [[ -z "$1" ]]; then
-        log_error "ConfigMap name is required."
-        usage
-    fi
-
-    configmap_name="$1"
     log_info "Searching for pods using ConfigMap: '$configmap_name' in ${namespace_flag/-A/'all namespaces'}..."
 
     # Find pods using the ConfigMap as a volume

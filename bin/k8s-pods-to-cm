@@ -30,38 +30,32 @@ check_jq() {
 register_preflight check_kubectl
 register_preflight check_jq
 
-# Usage function
-usage() {
-    log_error "Usage: $(basename "$0") [-n namespace] <pod-name-pattern>"
-    log_info "  -n : (Optional) Specify a namespace. If omitted, searches in all namespaces."
-    exit 1
-}
+# Set script metadata
+set_script_info \
+    "Find ConfigMaps used by pods matching a pattern" \
+    "k8s-pods-to-cm [options] <pod-name-pattern>" \
+    "  k8s-pods-to-cm -n kube-system coredns"
+
+# Register flags
+register_flag "namespace" "string" "Namespace to search in (defaults to all namespaces)" "n"
+
+# Register required positional argument
+register_required_positional 1 "Pod name pattern to search for"
 
 main() {
-    # Default to querying all namespaces
+    # Parse flags
+    parse_flags "$@" || exit 1
+
+    # Get namespace flag value
+    local namespace
+    namespace=$(get_flag namespace)
     local namespace_flag="-A"
-    local pod_pattern=""
+    [[ -n "$namespace" ]] && namespace_flag="-n $namespace"
 
-    # Parse arguments
-    while getopts "n:" opt; do
-        case "${opt}" in
-            n)
-                namespace_flag="-n ${OPTARG}"
-                ;;
-            *)
-                usage
-                ;;
-        esac
-    done
-    shift $((OPTIND - 1))
+    # Get pod pattern from positional args
+    local pod_pattern
+    pod_pattern=$(get_positional_args | head -n1)
 
-    # Ensure a pod pattern is provided
-    if [[ -z "$1" ]]; then
-        log_error "Pod name pattern is required."
-        usage
-    fi
-
-    pod_pattern="$1"
     log_info "Searching for ConfigMaps used by pods matching: '$pod_pattern' in ${namespace_flag/-A/'all namespaces'}..."
 
     # Get matching pods with both namespace and pod name (format: namespace/pod)
@@ -123,7 +117,7 @@ main() {
     fi
 
     if [[ ${#unique_env_cms[@]} -gt 0 ]]; then
-        print_table "ConfigMaps used in environment variables" "/" header unique_env_cms
+        print_table "ConfigMaps used in environment variables" "/" headers unique_env_cms
     else
         log_info "No ConfigMaps found in environment variables"
     fi

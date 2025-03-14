@@ -168,7 +168,21 @@ EOF
 # Editor input tests
 ###############################################################################
 
+_check_interactive() {
+    # Skip if running under BATS
+    if [[ -n "${BATS_VERSION:-}" ]]; then
+        skip "Test requires interactive terminal"
+    fi
+    
+    # Skip if no TTY available
+    if [[ ! -t 0 ]] || [[ ! -t 1 ]] || [[ ! -t 2 ]] || [[ ! -e /dev/tty ]]; then
+        skip "Test requires TTY access"
+    fi
+}
+
 @test "get_input_with_editor uses specified editor" {
+    _check_interactive
+
     # Create mock editor that writes content
     cat > "$TEST_DIR/mock_editor.sh" << 'EOF'
 #!/bin/bash
@@ -191,6 +205,8 @@ EOF
 }
 
 @test "get_input_with_editor preserves initial content" {
+    _check_interactive
+
     # Create mock editor that appends to existing content
     cat > "$TEST_DIR/mock_editor.sh" << 'EOF'
 #!/bin/bash
@@ -215,6 +231,8 @@ EOF
 }
 
 @test "get_input_with_editor handles editor failures" {
+    _check_interactive
+
     # Create mock editor that fails
     cat > "$TEST_DIR/mock_editor.sh" << 'EOF'
 #!/bin/bash

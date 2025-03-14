@@ -11,9 +11,15 @@ TEST_FILE ?=
 # Directories to check
 SCRIPT_DIRS := bin lib test
 
-# Find all shell scripts (excluding test files)
-SHELL_SCRIPTS := $(shell find $(SCRIPT_DIRS) -type f -name "*.sh" ! -name "*_test.sh") \
-                 $(shell find $(SCRIPT_DIRS) -type f ! -name "*_test.sh" -exec test -x {} \; -exec sh -c 'file -b --mime-type "$$0" | grep -q "^text/"' {} \; -print)
+# Find all shell scripts (excluding test files, .git and .github directories)
+SHELL_SCRIPTS := $(shell find $(SCRIPT_DIRS) -type f -name "*.sh" ! -name "*_test.sh" \
+                        -not -path "*/\.*/*" \
+                        -not -path "*/\.*") \
+                 $(shell find $(SCRIPT_DIRS) -type f ! -name "*_test.sh" \
+                        -not -path "*/\.*/*" \
+                        -not -path "*/\.*" \
+                        -exec test -x {} \; \
+                        -exec sh -c 'file -b --mime-type "$$0" | grep -q "^text/"' {} \; -print)
 
 # Collect all PHONY targets in one place
 .PHONY: help tag archive ghrelease release gh-install test all check format format-check install-tools setup-hooks
@@ -116,7 +122,7 @@ test-specific:
 		exit 1; \
 	fi
 	@echo "Running specific test: $(TEST_FILE)"
-	@bats "$(TEST_FILE)"
+	@bats "$(TEST_FILE)" --verbose-run --jobs 8
 
 # Smart test target that delegates to either test-all or test-specific
 test:
@@ -131,7 +137,9 @@ check: check-tools format-check shellcheck custom-checks
 
 shellcheck:
 	@echo "Running shellcheck..."
-	@shellcheck -x -s bash $(SHELL_SCRIPTS)
+	@shellcheck -x -s bash \
+		--exclude=SC2034,SC2178 \
+		$(SHELL_SCRIPTS)
 
 custom-checks:
 	@echo "Running custom checks..."

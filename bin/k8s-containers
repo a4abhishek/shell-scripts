@@ -20,14 +20,17 @@ check_kubectl() {
 # Register preflight checks
 register_preflight check_kubectl
 
-# Usage function
-usage() {
-    log_error "Usage: $(basename "$0") [-n <namespace>] <pod>"
-    log_info "  Lists all containers and their images in a pod"
-    log_info "  -n : (Optional) Specify a namespace"
-    log_info "  Example: $(basename "$0") -n kube-system coredns-123456"
-    exit 1
-}
+# Set script metadata
+set_script_info \
+    "Lists all containers and their images in a pod" \
+    "k8s-containers [options] <pod>" \
+    "  k8s-containers -n kube-system coredns-123456"
+
+# Register flags
+register_flag "namespace" "string" "Namespace to search in" "n"
+
+# Register required positional argument
+register_required_positional 1 "Pod name to inspect"
 
 # Function to fetch and display container details
 display_containers() {
@@ -58,36 +61,18 @@ display_containers() {
 }
 
 main() {
-    local namespace=""
-    local pod=""
+    # Parse flags
+    parse_flags "$@" || exit 1
 
-    # Parse arguments
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            -n)
-                if [[ -z "$2" || "$2" == "-"* ]]; then
-                    log_error "Namespace flag '-n' requires an argument."
-                    usage
-                fi
-                namespace="$2"
-                shift 2
-                ;;
-            *)
-                pod="$1"
-                shift
-                ;;
-        esac
-    done
-
-    # Ensure a pod name is provided
-    if [[ -z "$pod" ]]; then
-        log_error "Pod name is required."
-        usage
-    fi
-
-    # Construct kubectl namespace argument
+    # Get namespace flag value
+    local namespace
+    namespace=$(get_flag namespace)
     local namespace_arg=()
     [[ -n "$namespace" ]] && namespace_arg=(-n "$namespace")
+
+    # Get pod name from positional args
+    local pod
+    pod=$(get_positional_args | head -n1)
 
     log_info "Fetching container details for pod: '$pod' ${namespace:+in namespace \"$namespace\"}..."
 

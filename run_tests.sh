@@ -41,7 +41,7 @@ failed_tests=0
 # Run all .sh files in test/ with Bats
 for t in test/*_test.sh; do
     echo "Running $t..."
-    if ! bats "$t"; then
+    if ! bats "$t" --verbose-run --jobs 8; then
         failed_tests=$((failed_tests + 1))
     fi
 done

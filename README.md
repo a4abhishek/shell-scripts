@@ -7,10 +7,320 @@ A collection of robust shell script utilities and libraries for building reliabl
 ## Features
 
 - 📝 **Standardized Logging:** Colored log output for clear, consistent messaging.
+- 🚩 **Command-line Flag Parsing:** Robust flag parsing with validation and configuration.
 - ✅ **Preflight Checks:** Validate dependencies and environment before execution.
 - 🔄 **Graceful Exit Handling:** Ensure proper cleanup on interruption.
 - 📨 **Slack Notifications:** Optionally send notifications on command completion.
 - ⌨️ **Interactive Input:** Simplify user input with built-in utilities.
+
+## Command-line Flag Parsing
+
+The flags library provides robust command-line argument parsing with extensive validation:
+
+```bash
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+. "$SCRIPT_DIR/lib/core/flags.sh"
+
+# Set script metadata
+set_script_info \
+    "My script description" \
+    "myscript [options] <input-file>"
+
+# Optional: Load defaults from config file
+set_config_file ".myscript.conf"
+
+# Register flags with all features
+register_flag "verbose" "bool" "Enable verbose output" "v"
+register_flag "count" "int" "Number of iterations" "n" "1"
+register_flag "name" "string" "Your name" "u" "Default User" "" "USER_NAME"
+register_flag "mode" "string" "Operation mode" "m" "start" "start|stop|restart"
+register_flag "email" "string" "Email address" "e" "" "" "" "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+
+# Register mutually exclusive flags
+register_mutex_flags "start" "stop"
+
+# Register required positional arguments
+register_required_positional 1 "Input file to process"
+
+# Parse command line arguments
+parse_flags "$@" || exit 1
+
+# Use parsed flags
+if [[ "$(get_flag verbose)" == "true" ]]; then
+    log_info "Verbose mode enabled"
+fi
+
+count=$(get_flag count)
+name=$(get_flag name)
+mode=$(get_flag mode)
+
+# Process positional arguments
+while IFS= read -r file; do
+    process_file "$file"
+done < <(get_positional_args)
+```
+
+### Features
+
+- Support for boolean, integer, and string flags
+- Short and long flag formats (e.g., `-v`, `--verbose`)
+- Flag value assignment via space or equals (`--flag value`, `--flag=value`)
+- Support for negative numbers in integer flags
+- Environment variable fallbacks
+- Configuration file support
+- Regex pattern validation
+- Mutually exclusive flags
+- Required positional arguments
+- Structured return values (JSON-like)
+
+### Additional Examples
+
+Here are more comprehensive examples of using the flags library:
+
+#### Example 1: Basic Flag Usage
+```bash
+source "lib/core/flags.sh"
+
+set_script_info "File processor" "process_files [options] <input_file>"
+register_flag "verbose" "bool" "Enable verbose output" "v"
+register_flag "output" "string" "Output file path" "o" "" "" "OUTPUT_FILE"
+
+parse_flags "$@" || exit 1
+
+if [[ "$(get_flag verbose)" == "true" ]]; then
+    echo "Verbose mode enabled"
+fi
+```
+
+#### Example 2: Advanced Validation and Mutually Exclusive Flags
+```bash
+source "lib/core/flags.sh"
+
+set_script_info "User Manager" "user_manager [options]"
+
+register_flag "create" "bool" "Create new user" "c"
+register_flag "delete" "bool" "Delete user" "d"
+register_flag "username" "string" "Username" "u" "" "" "" "^[a-zA-Z][a-zA-Z0-9_-]*$"
+register_flag "email" "string" "Email address" "e" "" "" "USER_EMAIL" "$EMAIL_PATTERN"
+
+register_mutex_flags "create" "delete"
+
+parse_flags "$@" || exit 1
+```
+
+#### Example 3: Configuration File and Environment Variables
+```bash
+source "lib/core/flags.sh"
+
+set_script_info "Database Backup" "db_backup [options]"
+set_config_file ".dbbackup.conf"
+
+register_flag "host" "string" "Database host" "h" "localhost" "" "DB_HOST"
+register_flag "port" "int" "Database port" "p" "5432" "" "DB_PORT"
+register_flag "compress" "bool" "Compress backup" "c" "false"
+
+parse_flags "$@" || exit 1
+```
+
+#### Example 4: Required Positional Arguments
+```bash
+source "lib/core/flags.sh"
+
+set_script_info "File Copy" "copy_files [options] <source> <destination>"
+
+register_flag "force" "bool" "Overwrite existing files" "f"
+register_required_positional 2 "Source and destination paths required"
+
+parse_flags "$@" || exit 1
+
+source_path=$(get_positional_args | head -n1)
+dest_path=$(get_positional_args | tail -n1)
+```
+
+#### Example 5: Using Allowed Values and Transformers
+```bash
+source "lib/core/flags.sh"
+
+set_script_info "Log Analyzer" "analyze_logs [options] <log_file>"
+
+register_flag "level" "string" "Log level to analyze" "l" "info" "debug|info|warn|error"
+register_flag "format" "string" "Output format" "f" "text" "text|json|csv"
+register_required_positional 1 "Log file to analyze"
+
+parse_flags "$@" || exit 1
+```
+
+### Flag Value Precedence
+
+The flags library follows a strict precedence order when determining flag values:
+
+1. **Command Line Arguments** (Highest Priority)
+   - Values provided directly via command line flags take precedence over all other sources
+   - Example: `--name="CLI User"` will override all other values
+
+2. **Environment Variables**
+   - If a flag has an associated environment variable and no command line value is provided
+   - Example: `USER_NAME="Env User" ./script.sh` will be used if no --name flag is provided
+
+3. **Configuration File**
+   - Values from the config file are used if no command line or environment variable values exist
+   - Example: `name=Config User` in `.script.conf`
+
+4. **Default Values** (Lowest Priority)
+   - Default values specified during flag registration are used if no other source provides a value
+   - Example: Default value in `register_flag "name" "string" "Your name" "n" "Default User"`
+
+This precedence order ensures predictable behavior and allows for flexible configuration through multiple methods.
+
+### Flag Types and Formats
+
+```bash
+# Boolean flags
+--flag          # Sets to true
+--flag=true     # Explicit true
+--flag false    # Explicit false
+-f              # Short form (sets to true)
+
+# Value flags
+--name value    # Space separated
+--name=value    # Equals separated
+-n value        # Short form
+
+# Combined short flags (boolean only)
+-vdf            # Same as -v -d -f
+
+# Integer flags (with negative numbers)
+--count -5      # Negative values supported
+--count=-5      # Equals syntax
+-n -5           # Short form
+```
+
+### Validation Features
+
+```bash
+# Allowed values
+register_flag "mode" "string" "Mode" "m" "start" "start|stop|restart"
+
+# Regex pattern
+register_flag "email" "string" "Email" "e" "" "" "" "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+
+# Environment variable fallback
+register_flag "name" "string" "Name" "n" "" "" "USER_NAME"
+
+# Required flags
+register_flag "required" "string" "Required value" "" "" "" "" "" "true"
+
+# Mutually exclusive
+register_mutex_flags "start" "stop"
+```
+
+### Configuration File Support
+
+```bash
+# .myscript.conf
+verbose=true
+count=5
+name=John Doe
+```
+
+### Structured Output
+
+```bash
+# Get parsed arguments in JSON-like format
+eval "$(get_parsed_args)"
+echo "${flags}"      # {"verbose":"true","count":"5","name":"John Doe"}
+echo "${positional}" # ["input.txt","output.txt"]
+```
+
+### Internal Functions and Implementation Details
+
+#### Context Handling
+The flags library uses a context-based system to manage multiple flag sets:
+
+```bash
+# Contexts are automatically initialized based on the calling script
+source "lib/core/flags.sh"  # Auto-initializes context based on script name
+
+# Manual context initialization (rarely needed)
+init_flag_context "my_context"
+```
+
+#### Flag Types and Validation
+The library supports three flag types with built-in validation:
+
+1. **Boolean Flags**
+   - Values: true/false, yes/no, 0/1
+   - Example: `register_flag "verbose" "bool" "Enable verbose output" "v"`
+
+2. **Integer Flags**
+   - Supports negative numbers
+   - Example: `register_flag "count" "int" "Count" "n" "1"`
+
+3. **String Flags**
+   - Optional pattern validation
+   - Built-in patterns:
+     ```bash
+     # Email validation pattern
+     register_flag "email" "string" "Email" "e" "" "" "" "$EMAIL_PATTERN"
+     
+     # Phone number validation (format: ###-###-####)
+     register_flag "phone" "string" "Phone" "p" "" "" "" "$PHONE_PATTERN"
+     
+     # Custom pattern
+     register_flag "username" "string" "Username" "u" "" "" "" "^[a-zA-Z][a-zA-Z0-9_-]*$"
+     ```
+
+#### Error Handling
+The library uses specific error codes for different failure scenarios:
+
+```bash
+ERR_INVALID_FLAG=1      # Unknown or invalid flag
+ERR_INVALID_VALUE=2     # Invalid value for flag type
+ERR_INVALID_TYPE=3      # Unsupported flag type
+ERR_CONTEXT_NOT_FOUND=4 # Invalid flag context
+ERR_MUTEX_VIOLATION=5   # Mutually exclusive flags used together
+ERR_MISSING_REQUIRED=6  # Required flag or argument missing
+ERR_INVALID_CONFIG=7    # Invalid configuration file format
+```
+
+#### Internal Helper Functions
+
+1. **_validate_context**
+   - Validates if a flag context exists
+   - Used internally by other functions
+   ```bash
+   if ! _validate_context "my_context"; then
+       log_error "Invalid context"
+       return 1
+   fi
+   ```
+
+2. **_get_context_arrays**
+   - Retrieves multiple context-specific arrays efficiently
+   - Used for internal state management
+   ```bash
+   # Get multiple arrays at once
+   read -r flags types defaults <<< $(_get_context_arrays "my_context" "FLAGS" "TYPES" "DEFAULTS")
+   ```
+
+3. **_auto_init_context**
+   - Automatically initializes context based on calling script
+   - Registers cleanup handlers
+   - Called when the library is sourced
+
+#### Configuration File Format
+Configuration files should follow these rules:
+- One flag per line in `key=value` format
+- Lines starting with # are comments
+- Keys must match registered flag names
+- Values must be valid for the flag type
+```bash
+# Example .myscript.conf
+verbose=true
+count=5
+name=John Doe
+```
 
 ## Directory Structure
 

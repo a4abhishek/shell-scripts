@@ -32,14 +32,18 @@ check_kubectl() {
 # Register preflight checks
 register_preflight check_kubectl
 
-# Usage function
-usage() {
-    log_info "Usage: $(basename "$0") [deployment-name]"
-    log_info "  Interactive deployment rollback utility"
-    log_info "  If deployment name is provided, rolls back directly"
-    log_info "  Otherwise, enters interactive mode"
-    log_info "  Example: $(basename "$0") my-deployment"
-}
+# Set script metadata
+set_script_info \
+    "Interactive deployment rollback utility" \
+    "k8s-rollback [options] [deployment-name]" \
+    "  # Interactive mode (no arguments)
+  k8s-rollback
+
+  # Direct rollback
+  k8s-rollback my-deployment"
+
+# Register flags
+register_flag "interactive" "bool" "Run in interactive mode" "i" "false"
 
 # Detect Namespace of a Given Deployment
 get_deployment_namespace() {
@@ -112,18 +116,24 @@ interactive_mode() {
 }
 
 main() {
-    if [[ "$1" == "-h" ]]; then
-        usage
-        exit 0
-    fi
+    # Parse flags
+    parse_flags "$@" || exit 1
 
-    if [[ $# -eq 1 ]]; then
-        local deployment_name="$1"
+    # Get interactive flag value
+    local is_interactive
+    is_interactive=$(get_flag interactive)
+
+    # Get deployment name from positional args if provided
+    local deployment_name
+    deployment_name=$(get_positional_args | head -n1)
+
+    # If no deployment name provided or interactive mode requested, run interactive mode
+    if [[ -z "$deployment_name" ]] || [[ "$is_interactive" == "true" ]]; then
+        interactive_mode
+    else
         local namespace
         namespace=$(get_deployment_namespace "$deployment_name") || exit 1
         rollback_deployment "$deployment_name" "$namespace"
-    else
-        interactive_mode
     fi
 }
 
