@@ -12,6 +12,7 @@ A collection of robust shell script utilities and libraries for building reliabl
 - 🔄 **Graceful Exit Handling:** Ensure proper cleanup on interruption.
 - 📨 **Slack Notifications:** Optionally send notifications on command completion.
 - ⌨️ **Interactive Input:** Simplify user input with built-in utilities.
+- 📊 **Progress Indicators:** Beautiful progress bars and loading spinners with Unicode and color support.
 
 ## Command-line Flag Parsing
 
@@ -659,6 +660,79 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 export SLACK_WEBHOOK_URL="your-webhook-url"
 send_slack_message "Deployment completed successfully!"
+```
+
+### Progress Indicators
+
+The progress library provides beautiful progress bars and loading indicators with Unicode and color support:
+
+```bash
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+. "$SCRIPT_DIR/lib/core/progress.sh"
+
+# Show a progress bar for a task with known total steps
+total_steps=100
+for ((i=0; i<=total_steps; i++)); do
+    progress_bar "$i" "$total_steps" "Downloading package"
+    sleep 0.1  # Simulate work
+done
+echo  # Add newline after progress completes
+
+# Show a loading indicator for tasks with unknown duration
+loader_run "Validating configuration" sleep 2
+
+# Show a loading indicator for background tasks
+(sleep 3) &
+loader_wait "Running background task" "$!"
+```
+
+The progress library features:
+
+1. **Progress Bars**
+   - Shows percentage and visual progress
+   - Unicode box-drawing characters when supported
+   - Fallback to ASCII characters when Unicode is disabled
+   - Color transitions based on progress (yellow → blue → green)
+
+2. **Loading Indicators**
+   - Animated spinner with task description
+   - Success (✓) or failure (✗) indicators on completion
+   - Blinking dots for in-progress state
+   - Clean output formatting
+
+3. **Automatic Feature Detection**
+   - Unicode support detection (`HAS_UNICODE_SUPPORT`)
+   - Color support detection (`HAS_COLOR_SUPPORT`)
+   - Graceful fallbacks for limited environments
+
+**Environment Variables:**
+```bash
+# Force or disable features
+export HAS_UNICODE_SUPPORT=true   # Force Unicode characters
+export HAS_COLOR_SUPPORT=true     # Force colored output
+export NO_COLOR=1                 # Disable colors (takes precedence)
+export NO_UNICODE=1              # Disable Unicode (takes precedence)
+
+# Locale settings also affect Unicode support
+export LC_ALL=C                  # Disable Unicode
+export LANG=en_US.UTF-8         # Enable Unicode (if supported)
+```
+
+**Example Output:**
+
+With Unicode and color support:
+```
+Downloading package [██████████████▌              ] 48% 
+✓ Configuration validated
+✗ Background task failed
+```
+
+Without Unicode or color support:
+```
+Downloading package [==============>             ] 48% 
+[OK] Configuration validated
+[FAILED] Background task failed
 ```
 
 ### Command Execution with Notifications

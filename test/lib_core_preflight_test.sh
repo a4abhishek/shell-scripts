@@ -18,49 +18,78 @@ teardown() {
     exec 1>&${ORIG_STDOUT}
     exec 2>&${ORIG_STDERR}
     
-    # Clear any test overrides
+    # Clear all test overrides and environment variables
     unset FORCE_COLOR
     unset NO_COLOR
     unset FORCE_UNICODE
+    unset NO_UNICODE
     unset TERM
+    unset HAS_COLOR_SUPPORT
+    unset HAS_UNICODE_SUPPORT
+    unset LC_ALL
+    unset LANG
     
     # Cleanup test directory
-    rm -rf "$TEST_DIR"
+    rm -rf "$TEST_DIR" || true
 }
 
 @test "terminal detection respects FORCE_COLOR" {
     # Force color on
-    export FORCE_COLOR=1
+    FORCE_COLOR=1
     unset NO_COLOR
     _detect_terminal_features
     reinit_terminal_capabilities
     [[ "${HAS_COLOR_SUPPORT}" == "true" ]]
     
     # Force color off with NO_COLOR (NO_COLOR takes precedence)
-    export NO_COLOR=1
+    NO_COLOR=1
     _detect_terminal_features
     reinit_terminal_capabilities
     [[ "${HAS_COLOR_SUPPORT}" == "false" ]]
 }
 
 @test "terminal detection respects FORCE_UNICODE" {
+    # Save original environment
+    local orig_lang="${LANG:-}"
+    local orig_lc_all="${LC_ALL:-}"
+    
     # Force unicode on
-    export FORCE_UNICODE=1
+    FORCE_UNICODE=1
     _detect_terminal_features
     reinit_terminal_capabilities
+    echo "HAS_UNICODE_SUPPORT=$HAS_UNICODE_SUPPORT"
+    echo "info symbol=${_SYMBOLS[info]}"
     [[ "${HAS_UNICODE_SUPPORT}" == "true" ]]
     [[ "${_SYMBOLS[info]}" == "📌" ]]
     
-    # Force unicode off (by unsetting)
+    # Force unicode off
     unset FORCE_UNICODE
-    # Force locale to non-UTF-8
-    LC_ALL=C _detect_terminal_features
-    LC_ALL=C reinit_terminal_capabilities
+    NO_UNICODE=1
+    LC_ALL=C
+    LANG=C
+    _detect_terminal_features
+    reinit_terminal_capabilities
+    echo "After LC_ALL=C:"
+    echo "HAS_UNICODE_SUPPORT=$HAS_UNICODE_SUPPORT"
+    echo "info symbol=${_SYMBOLS[info]}"
     [[ "${_SYMBOLS[info]}" == "INFO:" ]]
+    
+    # Restore original environment
+    if [[ -n "$orig_lang" ]]; then
+        LANG="$orig_lang"
+    else
+        unset LANG
+    fi
+    if [[ -n "$orig_lc_all" ]]; then
+        LC_ALL="$orig_lc_all"
+    else
+        unset LC_ALL
+    fi
+    unset NO_UNICODE
 }
 
 @test "color codes are set when color is enabled" {
-    export FORCE_COLOR=1
+    FORCE_COLOR=1
     _detect_terminal_features
     reinit_terminal_capabilities
     [[ -n "${_COLOR_INFO}" ]]
@@ -69,7 +98,7 @@ teardown() {
 }
 
 @test "color codes are empty when color is disabled" {
-    export NO_COLOR=1
+    NO_COLOR=1
     _detect_terminal_features
     reinit_terminal_capabilities
     [[ -z "${_COLOR_INFO}" ]]
@@ -88,37 +117,59 @@ teardown() {
 }
 
 @test "terminal detection handles missing tput" {
-    # Save original PATH
+    # Save original PATH and environment
     local orig_path="$PATH"
+    local orig_has_color="${HAS_COLOR_SUPPORT:-}"
     
-    # Remove tput from PATH
+    # Remove tput from PATH and reset environment
     PATH=""
-    export FORCE_COLOR=""
-    export NO_COLOR=""
+    unset FORCE_COLOR
+    unset NO_COLOR
+    unset HAS_COLOR_SUPPORT
     
+    # Re-detect features with empty PATH
+    _detect_terminal_features
     reinit_terminal_capabilities
     [[ "${HAS_COLOR_SUPPORT}" == "false" ]]
     
-    # Restore PATH
+    # Restore original environment
     PATH="$orig_path"
+    if [[ -n "$orig_has_color" ]]; then
+        HAS_COLOR_SUPPORT="$orig_has_color"
+    else
+        unset HAS_COLOR_SUPPORT
+    fi
 }
 
 @test "terminal detection handles non-terminal output" {
+    # Save original environment
+    local orig_has_color="${HAS_COLOR_SUPPORT:-}"
+    
     # Redirect stdout to file to simulate non-terminal output
     exec 1> /dev/null
     
-    export FORCE_COLOR=""
-    export NO_COLOR=""
+    # Reset environment variables
+    unset FORCE_COLOR
+    unset NO_COLOR
+    unset HAS_COLOR_SUPPORT
+    
+    # Re-detect features
+    _detect_terminal_features
     reinit_terminal_capabilities
     [[ "${HAS_COLOR_SUPPORT}" == "false" ]]
     
-    # Restore stdout
+    # Restore stdout and environment
     exec 1>&${ORIG_STDOUT}
+    if [[ -n "$orig_has_color" ]]; then
+        HAS_COLOR_SUPPORT="$orig_has_color"
+    else
+        unset HAS_COLOR_SUPPORT
+    fi
 }
 
 @test "symbols are consistent across reinitializations" {
     # First initialization
-    export FORCE_UNICODE=1
+    FORCE_UNICODE=1
     reinit_terminal_capabilities
     local first_info_symbol="${_SYMBOLS[info]}"
     

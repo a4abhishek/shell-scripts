@@ -9,40 +9,50 @@ set -euo pipefail
 # Detect terminal capabilities and set environment variables
 _detect_terminal_features() {
     # OS detection
-    case "$(uname -s)" in
-        Darwin*)
-            export OS_NAME="darwin"
-            export OS_FAMILY="bsd"
-            ;;
-        Linux*)
-            export OS_NAME="linux"
-            export OS_FAMILY="linux"
-            ;;
-        *)
-            export OS_NAME="unknown"
-            export OS_FAMILY="unknown"
-            ;;
-    esac
+    if command -v uname > /dev/null 2>&1; then
+        case "$(uname -s)" in
+            Darwin*)
+                export OS_NAME="darwin"
+                export OS_FAMILY="bsd"
+                ;;
+            Linux*)
+                export OS_NAME="linux"
+                export OS_FAMILY="linux"
+                ;;
+            *)
+                export OS_NAME="unknown"
+                export OS_FAMILY="unknown"
+                ;;
+        esac
+    else
+        export OS_NAME="unknown"
+        export OS_FAMILY="unknown"
+    fi
 
     # Architecture detection
-    case "$(uname -m)" in
-        x86_64 | amd64)
-            export ARCH_NAME="x86_64"
-            export ARCH_FAMILY="x86"
-            ;;
-        arm64 | aarch64)
-            export ARCH_NAME="arm64"
-            export ARCH_FAMILY="arm"
-            ;;
-        armv7l)
-            export ARCH_NAME="arm32"
-            export ARCH_FAMILY="arm"
-            ;;
-        *)
-            export ARCH_NAME="unknown"
-            export ARCH_FAMILY="unknown"
-            ;;
-    esac
+    if command -v uname > /dev/null 2>&1; then
+        case "$(uname -m)" in
+            x86_64 | amd64)
+                export ARCH_NAME="x86_64"
+                export ARCH_FAMILY="x86"
+                ;;
+            arm64 | aarch64)
+                export ARCH_NAME="arm64"
+                export ARCH_FAMILY="arm"
+                ;;
+            armv7l)
+                export ARCH_NAME="arm32"
+                export ARCH_FAMILY="arm"
+                ;;
+            *)
+                export ARCH_NAME="unknown"
+                export ARCH_FAMILY="unknown"
+                ;;
+        esac
+    else
+        export ARCH_NAME="unknown"
+        export ARCH_FAMILY="unknown"
+    fi
 
     # Package manager detection
     if command -v brew > /dev/null 2>&1; then
@@ -91,26 +101,50 @@ _detect_terminal_features() {
 
     # Color support detection
     if [[ -n "${NO_COLOR:-}" ]]; then
+        # NO_COLOR takes precedence over everything else
         export HAS_COLOR_SUPPORT=false
     elif [[ -n "${FORCE_COLOR:-}" ]]; then
+        # FORCE_COLOR takes precedence if NO_COLOR is not set
         export HAS_COLOR_SUPPORT=true
+    elif [[ -n "${HAS_COLOR_SUPPORT:-}" ]]; then
+        # Use the pre-set value if neither NO_COLOR nor FORCE_COLOR is set
+        :
     else
-        if [[ -t 1 ]] && [[ -n "${TERM:-}" ]] && command -v tput > /dev/null 2>&1; then
-            if [[ $(tput colors 2> /dev/null || echo 0) -ge 8 ]]; then
-                export HAS_COLOR_SUPPORT=true
-            else
-                export HAS_COLOR_SUPPORT=false
-            fi
-        else
+        # Check if we're outputting to a terminal
+        if [[ ! -t 1 ]]; then
             export HAS_COLOR_SUPPORT=false
+        else
+            # Check for tput and TERM
+            if ! command -v tput > /dev/null 2>&1; then
+                export HAS_COLOR_SUPPORT=false
+            elif [[ -z "${TERM:-}" ]]; then
+                export HAS_COLOR_SUPPORT=false
+            else
+                if [[ $(tput colors 2> /dev/null || echo 0) -ge 8 ]]; then
+                    export HAS_COLOR_SUPPORT=true
+                else
+                    export HAS_COLOR_SUPPORT=false
+                fi
+            fi
         fi
     fi
 
     # Unicode support detection
-    if [[ -n "${FORCE_UNICODE:-}" ]]; then
+    if [[ -n "${NO_UNICODE:-}" ]]; then
+        # NO_UNICODE takes precedence over everything else
+        export HAS_UNICODE_SUPPORT=false
+    elif [[ -n "${FORCE_UNICODE:-}" ]]; then
+        # FORCE_UNICODE takes precedence if NO_UNICODE is not set
         export HAS_UNICODE_SUPPORT=true
+    elif [[ -n "${HAS_UNICODE_SUPPORT:-}" ]]; then
+        # Use the pre-set value if neither NO_UNICODE nor FORCE_UNICODE is set
+        :
+    elif [[ "${LC_ALL:-}" == "C" ]] || [[ "${LC_ALL:-}" == "POSIX" ]]; then
+        # C/POSIX locale disables Unicode
+        export HAS_UNICODE_SUPPORT=false
     else
-        if [[ "$(locale charmap 2> /dev/null)" == *"UTF-8"* ]]; then
+        # Default to true if we have a UTF-8 locale
+        if [[ -n "${LANG:-}" ]] && [[ "${LANG:-}" != "C" ]] && [[ "${LANG:-}" != "POSIX" ]]; then
             export HAS_UNICODE_SUPPORT=true
         else
             export HAS_UNICODE_SUPPORT=false
@@ -120,13 +154,15 @@ _detect_terminal_features() {
     # Date command feature detection
     if command -v gdate > /dev/null 2>&1; then
         export HAS_GNU_DATE=true
-    else
+    elif command -v date > /dev/null 2>&1; then
         # On Linux, the default date is GNU date
         if [[ "${OS_NAME}" == "linux" ]]; then
             export HAS_GNU_DATE=true
         else
             export HAS_GNU_DATE=false
         fi
+    else
+        export HAS_GNU_DATE=false
     fi
 
     # CI environment detection
