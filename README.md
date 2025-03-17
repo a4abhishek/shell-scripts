@@ -13,6 +13,35 @@ A collection of robust shell script utilities and libraries for building reliabl
 - 📨 **Slack Notifications:** Optionally send notifications on command completion.
 - ⌨️ **Interactive Input:** Simplify user input with built-in utilities.
 - 📊 **Progress Indicators:** Beautiful progress bars and loading spinners with Unicode and color support.
+- 🔄 **Polling Mechanism:** Implement API polling with visual feedback and state management.
+
+## Progress and Polling
+
+The library provides robust tools for displaying progress indicators and implementing polling mechanisms:
+
+### Progress Indicators
+
+```bash
+#!/usr/bin/env bash
+source "lib/core/progress.sh"
+
+# Display a spinner while a command runs
+loader_run "Processing data" sleep 5
+
+# Show a progress bar
+total=100
+for ((i=1; i<=total; i++)); do
+    progress_bar "$i" "$total" "Processing"
+    sleep 0.05
+done
+
+# Display a countdown timer
+countdown_timer 10 "Starting in"
+```
+
+### Polling Mechanism
+
+A dedicated library for polling is comming soon.
 
 ## Command-line Flag Parsing
 

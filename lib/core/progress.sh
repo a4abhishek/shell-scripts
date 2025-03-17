@@ -46,6 +46,9 @@
 #   This library prints to stdout (for spinner and progress bar) using \r to update
 #   the same line. If you need to log progress elsewhere, you may want to redirect output.
 #
+# Note:
+#   For polling functionality, please use the polling.sh library.
+#
 
 # Prevent duplicate sourcing
 if [[ -n "${_LIB_PROGRESS_LOADED:-}" ]]; then return; fi
@@ -110,6 +113,45 @@ else
     declare -gr _LIB_PROGRESS_CHECK="+"
     declare -gr _LIB_PROGRESS_CROSS="x"
 fi
+
+# Progress/Countdown styles
+if [[ "${HAS_UNICODE_SUPPORT:-false}" == "true" ]]; then
+    # Shared styles for both progress and countdown
+    declare -gr _LIB_PROGRESS_STYLE_CIRCLE=("⓿" "❶" "❷" "❸" "❹" "❺" "❻" "❼" "❽" "❾" "❿")
+    declare -gr _LIB_PROGRESS_STYLE_SQUARE=("⬜" "▣" "▣" "▣" "▣" "▣" "▣" "▣" "▣" "▣" "▣")
+    declare -gr _LIB_PROGRESS_STYLE_FILL=("□□□□□□□□□□" "■□□□□□□□□□" "■■□□□□□□□□" "■■■□□□□□□□" "■■■■□□□□□□" "■■■■■□□□□□" "■■■■■■□□□□" "■■■■■■■□□□" "■■■■■■■■□□" "■■■■■■■■■□" "■■■■■■■■■■")
+    declare -gr _LIB_PROGRESS_STYLE_CLOCK=("🕛" "🕐" "🕑" "🕒" "🕓" "🕔" "🕕" "🕖" "🕗" "🕘" "🕙" "🕚")
+    declare -gr _LIB_PROGRESS_STYLE_MOON=("🌘" "🌗" "🌖" "🌕" "🌔" "🌓" "🌒" "🌑")
+    declare -gr _LIB_PROGRESS_STYLE_BLOCKS=("▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
+
+    # For backward compatibility - these will be deprecated
+    declare -gr _LIB_PROGRESS_STYLE_EMPTY=("${_LIB_PROGRESS_STYLE_FILL[@]}")
+    declare -gr _LIB_PROGRESS_STYLE_COUNTER_CLOCK=("${_LIB_PROGRESS_STYLE_CLOCK[@]}")
+    declare -gr _LIB_PROGRESS_STYLE_MOON_REVERSE=("${_LIB_PROGRESS_STYLE_MOON[@]}")
+    declare -gr _LIB_PROGRESS_STYLE_BLOCKS_REVERSE=("${_LIB_PROGRESS_STYLE_BLOCKS[@]}")
+else
+    # ASCII fallbacks
+    declare -gr _LIB_PROGRESS_STYLE_CIRCLE=("0" "1" "2" "3" "4" "5" "6" "7" "8" "9" "10")
+    declare -gr _LIB_PROGRESS_STYLE_SQUARE=("[ ]" "[#]" "[#]" "[#]" "[#]" "[#]" "[#]" "[#]" "[#]" "[#]" "[#]")
+    declare -gr _LIB_PROGRESS_STYLE_FILL=("[          ]" "[#         ]" "[##        ]" "[###       ]" "[####      ]" "[#####     ]" "[######    ]" "[#######   ]" "[########  ]" "[######### ]" "[##########]")
+    declare -gr _LIB_PROGRESS_STYLE_CLOCK=("(12)" "(1)" "(2)" "(3)" "(4)" "(5)" "(6)" "(7)" "(8)" "(9)" "(10)" "(11)")
+    declare -gr _LIB_PROGRESS_STYLE_MOON=("(0)" "(1)" "(2)" "(3)" "(4)" "(3)" "(2)" "(1)")
+    declare -gr _LIB_PROGRESS_STYLE_BLOCKS=("_" "^" "^" "|" "|" "#" "#" "#")
+
+    # For backward compatibility - these will be deprecated
+    declare -gr _LIB_PROGRESS_STYLE_EMPTY=("${_LIB_PROGRESS_STYLE_FILL[@]}")
+    declare -gr _LIB_PROGRESS_STYLE_COUNTER_CLOCK=("${_LIB_PROGRESS_STYLE_CLOCK[@]}")
+    declare -gr _LIB_PROGRESS_STYLE_MOON_REVERSE=("${_LIB_PROGRESS_STYLE_MOON[@]}")
+    declare -gr _LIB_PROGRESS_STYLE_BLOCKS_REVERSE=("${_LIB_PROGRESS_STYLE_BLOCKS[@]}")
+fi
+
+# Define style aliases for backward compatibility
+declare -gr _LIB_PROGRESS_STYLE_ALIASES=(
+    "empty:fill:true"            # empty is fill with reverse=true
+    "counter_clock:clock:true"   # counter_clock is clock with reverse=true
+    "moon_reverse:moon:true"     # moon_reverse is moon with reverse=true
+    "blocks_reverse:blocks:true" # blocks_reverse is blocks with reverse=true
+)
 
 declare -gr _LIB_PROGRESS_SPINNER_DELAY=0.1
 declare -gr _LIB_PROGRESS_DEFAULT_BAR_WIDTH=30
@@ -200,10 +242,12 @@ spinner_stop() {
 # @arg $2 total Total value for 100% progress
 # @arg $3 message Optional message to display before the progress bar
 # @arg $4 bar_width Optional width of the progress bar (default: 30)
+# @arg $5 style Optional style (default: standard, options: standard, fill, empty, circle, square, clock, moon, blocks)
+# @arg $6 reverse Optional flag to reverse the direction (default: false)
 # @return 0 on success, ERR_INVALID_ARGS if arguments are missing, ERR_INVALID_NUMBER if arguments are not numbers
 progress_bar() {
     if [[ $# -lt 2 ]]; then
-        log_error "Usage: progress_bar <current> <total> [message] [bar_width]"
+        log_error "Usage: progress_bar <current> <total> [message] [bar_width] [style] [reverse]"
         return "$ERR_INVALID_ARGS"
     fi
 
@@ -211,6 +255,31 @@ progress_bar() {
     local total="$2"
     local message="${3:-}"
     local bar_width="${4:-$_LIB_PROGRESS_DEFAULT_BAR_WIDTH}"
+    local style="${5:-standard}"
+    local reverse="${6:-false}"
+
+    # Handle style aliases for backward compatibility
+    for alias in "${_LIB_PROGRESS_STYLE_ALIASES[@]}"; do
+        local alias_name="${alias%%:*}"
+        local real_style="${alias#*:}"
+        real_style="${real_style%:*}"
+        local alias_reverse="${alias##*:}"
+
+        if [[ "$style" == "$alias_name" ]]; then
+            style="$real_style"
+            # Only override reverse if it wasn't explicitly set
+            if [[ "$reverse" == "false" ]]; then
+                reverse="$alias_reverse"
+            else
+                # If reverse was explicitly set to true and the alias also has reverse=true,
+                # they cancel each other out
+                if [[ "$alias_reverse" == "true" && "$reverse" == "true" ]]; then
+                    reverse="false"
+                fi
+            fi
+            break
+        fi
+    done
 
     # Validate numeric arguments
     if ! [[ "$current" =~ ^-?[0-9]+$ && "$total" =~ ^-?[0-9]+$ ]]; then
@@ -218,20 +287,8 @@ progress_bar() {
         return "$ERR_INVALID_NUMBER"
     fi
 
-    # Compute progress
-    local progress=$((current * bar_width / total))
+    # Compute progress percentage
     local percent=$((current * 100 / total))
-
-    # Build the bar string
-    local bar=""
-    local i
-    for ((i = 0; i < bar_width; i++)); do
-        if ((i < progress)); then
-            bar+="$_LIB_PROGRESS_BAR_FILL"
-        else
-            bar+="$_LIB_PROGRESS_BAR_EMPTY"
-        fi
-    done
 
     # Choose color based on progress
     local color="$_LIB_PROGRESS_COLOR_YELLOW"
@@ -241,21 +298,186 @@ progress_bar() {
         color="$_LIB_PROGRESS_COLOR_BLUE"
     fi
 
-    # Print the progress bar with carriage return
-    _clear_line
-    if [[ -n "$message" ]]; then
-        _format_text "$_LIB_PROGRESS_COLOR_CYAN" "$message "
+    # For countdown styles, reverse the color logic
+    if [[ "$reverse" == "true" ]]; then
+        if ((percent >= 75)); then
+            color="$_LIB_PROGRESS_COLOR_CYAN"
+        elif ((percent >= 50)); then
+            color="$_LIB_PROGRESS_COLOR_YELLOW"
+        elif ((percent >= 25)); then
+            color="$_LIB_PROGRESS_COLOR_BLUE"
+        else
+            color="$_LIB_PROGRESS_COLOR_GREEN"
+        fi
     fi
-    printf "%s" "$_LIB_PROGRESS_BAR_START"
-    _format_text "$color" "$bar"
-    printf "%s " "$_LIB_PROGRESS_BAR_END"
-    _format_text "$color" "$percent"
-    printf "%%"
+
+    # Handle different styles
+    case "$style" in
+        standard)
+            # Standard progress bar
+            local progress=$((current * bar_width / total))
+            local bar=""
+            local i
+
+            # Build the bar string
+            for ((i = 0; i < bar_width; i++)); do
+                if [[ "$reverse" == "true" ]]; then
+                    # Reverse fill (emptying)
+                    if ((i < bar_width - progress)); then
+                        bar+="$_LIB_PROGRESS_BAR_FILL"
+                    else
+                        bar+="$_LIB_PROGRESS_BAR_EMPTY"
+                    fi
+                else
+                    # Normal fill
+                    if ((i < progress)); then
+                        bar+="$_LIB_PROGRESS_BAR_FILL"
+                    else
+                        bar+="$_LIB_PROGRESS_BAR_EMPTY"
+                    fi
+                fi
+            done
+
+            # Print the progress bar
+            _clear_line
+            if [[ -n "$message" ]]; then
+                _format_text "$_LIB_PROGRESS_COLOR_CYAN" "$message "
+            fi
+            printf "%s" "$_LIB_PROGRESS_BAR_START"
+            _format_text "$color" "$bar"
+            printf "%s " "$_LIB_PROGRESS_BAR_END"
+            _format_text "$color" "$percent"
+            printf "%%"
+            ;;
+
+        fill | empty | square | circle)
+            # Styles that use predefined arrays
+            local style_array=()
+
+            case "$style" in
+                fill | empty)
+                    style_array=("${_LIB_PROGRESS_STYLE_FILL[@]}")
+                    ;;
+                square)
+                    style_array=("${_LIB_PROGRESS_STYLE_SQUARE[@]}")
+                    ;;
+                circle)
+                    style_array=("${_LIB_PROGRESS_STYLE_CIRCLE[@]}")
+                    ;;
+            esac
+
+            # Calculate index based on progress
+            local total_steps=${#style_array[@]}
+            local index=$((percent * (total_steps - 1) / 100))
+
+            # Handle reversal for non-reversed styles
+            if [[ "$reverse" == "true" ]]; then
+                index=$(((total_steps - 1) - index))
+            fi
+
+            if ((index >= total_steps)); then
+                index=$((total_steps - 1))
+            fi
+
+            # Print the progress indicator
+            _clear_line
+            if [[ -n "$message" ]]; then
+                _format_text "$_LIB_PROGRESS_COLOR_CYAN" "$message "
+            fi
+
+            _format_text "$color" "${style_array[$index]}"
+            printf " "
+            _format_text "$color" "$percent"
+            printf "%%"
+            ;;
+
+        clock | moon | blocks)
+            # Styles that use continuous rotation
+            local style_array=()
+            local should_reverse=false
+
+            # Determine if we need to reverse the index calculation
+            # For styles that are already reversed, applying reverse again should cancel out
+            if [[ "$reverse" == "true" ]]; then
+                should_reverse=true
+            fi
+
+            case "$style" in
+                clock)
+                    style_array=("${_LIB_PROGRESS_STYLE_CLOCK[@]}")
+                    ;;
+                moon)
+                    style_array=("${_LIB_PROGRESS_STYLE_MOON[@]}")
+                    ;;
+                blocks)
+                    style_array=("${_LIB_PROGRESS_STYLE_BLOCKS[@]}")
+                    ;;
+            esac
+
+            # Calculate index based on progress for continuous rotation
+            local total_steps=${#style_array[@]}
+            local index=$((percent * total_steps / 100 % total_steps))
+
+            # Apply reversal if needed
+            if [[ "$should_reverse" == "true" ]]; then
+                index=$(((total_steps - 1) - (index % total_steps)))
+            fi
+
+            # Print the progress indicator
+            _clear_line
+            if [[ -n "$message" ]]; then
+                _format_text "$_LIB_PROGRESS_COLOR_CYAN" "$message "
+            fi
+
+            _format_text "$color" "${style_array[$index]}"
+            printf " "
+            _format_text "$color" "$percent"
+            printf "%%"
+            ;;
+
+        *)
+            log_error "Invalid style: $style"
+            return "$ERR_INVALID_ARGS"
+            ;;
+    esac
 
     # When finished, print a newline
     if ((current >= total)); then
         echo
         echo
+    fi
+
+    return 0
+}
+
+# @function show_progress
+# @brief Shows a progress bar for a task with proper buffering and formatting
+# @arg $1 current Current progress value
+# @arg $2 total Total value for 100% progress
+# @arg $3 message Optional message to display before the progress bar
+# @arg $4 bar_width Optional width of the progress bar (default: 30)
+# @arg $5 style Optional style (default: standard, options: standard, fill, empty, circle, square, clock, moon, blocks)
+# @arg $6 reverse Optional flag to reverse the direction (default: false)
+# @return 0 on success, ERR_INVALID_ARGS if arguments are missing
+show_progress() {
+    if [[ $# -lt 2 ]]; then
+        log_error "Usage: show_progress <current> <total> [message] [bar_width] [style] [reverse]"
+        return "$ERR_INVALID_ARGS"
+    fi
+
+    # Force stdout to be unbuffered if stdbuf is available
+    if command -v stdbuf &> /dev/null; then
+        stdbuf -o0 printf ""
+    fi
+
+    # Show progress bar
+    progress_bar "$@"
+
+    # Force flush if at 100%
+    local current="$1"
+    local total="$2"
+    if ((current >= total)); then
+        printf "" >&2
     fi
 }
 
@@ -337,35 +559,6 @@ loader_wait() {
     return $ret
 }
 
-# @function show_progress
-# @brief Shows a progress bar for a task with proper buffering and formatting
-# @arg $1 current Current progress value
-# @arg $2 total Total value for 100% progress
-# @arg $3 message Optional message to display before the progress bar
-# @arg $4 bar_width Optional width of the progress bar (default: 30)
-# @return 0 on success, ERR_INVALID_ARGS if arguments are missing
-show_progress() {
-    if [[ $# -lt 2 ]]; then
-        log_error "Usage: show_progress <current> <total> [message] [bar_width]"
-        return "$ERR_INVALID_ARGS"
-    fi
-
-    # Force stdout to be unbuffered if stdbuf is available
-    if command -v stdbuf &> /dev/null; then
-        stdbuf -o0 printf ""
-    fi
-
-    # Show progress bar
-    progress_bar "$@"
-
-    # Force flush if at 100%
-    local current="$1"
-    local total="$2"
-    if ((current >= total)); then
-        printf "" >&2
-    fi
-}
-
 # @function run_with_spinner
 # @brief Runs a command while showing a spinner with proper formatting
 # @arg $1 message Message to display while running
@@ -406,10 +599,69 @@ run_in_background() {
     loader_wait "$message" "$pid"
 }
 
-# Cleanup handler
+# Extend cleanup handler to also stop spinner
 _cleanup_progress() {
-    spinner_stop
+    # Only clean up if we're exiting the script and not in a subshell
+    if [[ "${BASH_SUBSHELL:-0}" -eq 0 ]]; then
+        spinner_stop
+    fi
 }
 
 # Register cleanup handler
 trap _cleanup_progress EXIT
+
+# @function countdown_timer
+# @brief Displays a time-based countdown timer with various styles
+# @arg $1 seconds Number of seconds to count down
+# @arg $2 message Optional message to display before the countdown
+# @arg $3 style Optional style (standard, fill, empty, circle, square, clock, moon, blocks) - defaults to standard
+# @arg $4 bar_width Optional width of the bar (default: 30)
+# @arg $5 interval Optional interval between updates in seconds (default: 0.1)
+# @return 0 on success, ERR_INVALID_ARGS if arguments are missing
+countdown_timer() {
+    if [[ $# -lt 1 ]]; then
+        log_error "Usage: countdown_timer <seconds> [message] [style] [bar_width] [interval]"
+        return "$ERR_INVALID_ARGS"
+    fi
+
+    local seconds="$1"
+    local message="${2:-}"
+    local style="${3:-standard}"
+    local bar_width="${4:-$_LIB_PROGRESS_DEFAULT_BAR_WIDTH}"
+    local interval="${5:-0.1}"
+
+    # Validate numeric arguments
+    if ! [[ "$seconds" =~ ^[0-9]+$ ]]; then
+        log_error "Invalid seconds value: $seconds"
+        return "$ERR_INVALID_NUMBER"
+    fi
+
+    # Calculate number of steps based on seconds and interval
+    # Use bc for floating point calculation but store result as integer
+    local steps
+    steps=$(echo "scale=0; $seconds / $interval" | bc)
+    if ((steps <= 0)); then
+        steps=10 # Minimum number of steps for visual effect
+    fi
+
+    # Start countdown
+    for ((i = 0; i <= steps; i++)); do
+        # Calculate current percentage (from 0% to 100%)
+        # Use bc for floating point calculation but store result as integer
+        local percent
+        percent=$(echo "scale=0; ($i * 100) / $steps" | bc)
+
+        # Only print newlines for the last iteration (100%)
+        if ((i == steps)); then
+            show_progress 0 100 "$message" "$bar_width" "$style" "true"
+            echo
+        else
+            # Use progress_bar directly to avoid extra newlines
+            progress_bar "$percent" 100 "$message" "$bar_width" "$style" "true"
+        fi
+
+        sleep "$interval"
+    done
+
+    return 0
+}
