@@ -41,7 +41,48 @@ countdown_timer 10 "Starting in"
 
 ### Polling Mechanism
 
-A dedicated library for polling is comming soon.
+The polling library provides a robust, callback-based approach to implement API polling with visual feedback:
+
+```bash
+#!/usr/bin/env bash
+source "lib/core/polling.sh"
+
+# Define your callback function
+my_poll_callback() {
+    # Make your API call and check status
+    local response=$(curl -s "https://api.example.com/status")
+    
+    # Return appropriate status code:
+    # - POLLING_STATUS_CONTINUE (0): Continue polling
+    # - POLLING_STATUS_COMPLETE (1): Polling completed successfully
+    # - Any other value: Error occurred
+    if [[ "$response" == *"complete"* ]]; then
+        return $POLLING_STATUS_COMPLETE
+    else
+        return $POLLING_STATUS_CONTINUE
+    fi
+}
+
+# Run polling with callback
+polling_run "Checking status" 5 my_poll_callback
+```
+
+#### Key Concepts
+
+- **Callback-Based**: Your callback function is called on each polling attempt
+- **Status Codes**: Callback must return specific status codes to control polling flow
+- **Configurable**: Supports max attempts, timeout, and custom countdown display
+
+For detailed examples, see the `examples/` directory:
+- `minimal_polling_example.sh`: Basic polling functionality
+- `advanced_polling_example.sh`: Comprehensive examples with error handling, timeouts, and custom configurations
+
+#### Core Functions
+
+- `polling_run <message> <interval> <callback> [max_attempts] [timeout] [countdown_style] [countdown_width] [countdown_interval]`
+- `polling_with_timeout <message> <timeout> <command> [args...] [-- countdown_style countdown_width countdown_interval]`
+
+See the examples and library documentation for more details on usage and options.
 
 ## Command-line Flag Parsing
 
