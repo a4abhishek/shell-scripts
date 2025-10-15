@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+import sys
+
+def litprint(text: str) -> None:
+    """Literal print — interprets escape sequences like Python string literals.
+    Expands \\n, \\t, \\", etc. but does NOT expand $ or backticks."""
+    print(text.encode().decode("unicode_escape"), end='')
+
+if __name__ == "__main__":
+    if not sys.stdin.isatty():
+        # Case 1: Input is coming from a pipe
+        data = sys.stdin.read()
+        litprint(data)
+    elif len(sys.argv) > 1:
+        # Case 2: Input provided as command-line argument(s)
+        litprint(" ".join(sys.argv[1:]))
+    else:
+        # Case 3: No input at all
+        sys.stderr.write("Usage: litprint 'escaped string' OR echo 'text' | litprint\n")
+        sys.exit(1)
+
